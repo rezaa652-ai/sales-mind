@@ -6,16 +6,16 @@ type Ctx = { params: Promise<{ id: string }> }
 export async function GET(_req: NextRequest, { params }: Ctx) {
   const { id } = await params
   const supabase = await supabaseServer()
-  const { data, error } = await supabase.from('profiles_sales').select('*').eq('id', id).single()
+  const { data, error } = await supabase.from('events').select('*').eq('id', id).single()
   if (error) return NextResponse.json({ error: error.message }, { status: 404 })
   return NextResponse.json(data)
 }
 
 export async function PUT(req: NextRequest, { params }: Ctx) {
   const { id } = await params
-  const patch = await req.json()
+  const body = await req.json()
   const supabase = await supabaseServer()
-  const { error } = await supabase.from('profiles_sales').update(patch).eq('id', id)
+  const { error } = await supabase.from('events').update(body).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ ok: true })
 }
@@ -23,7 +23,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const { id } = await params
   const supabase = await supabaseServer()
-  const { error } = await supabase.from('profiles_sales').delete().eq('id', id)
+  const { error } = await supabase.from('events').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ ok: true })
 }

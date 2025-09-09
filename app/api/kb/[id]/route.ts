@@ -1,35 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabaseServer'
 
-export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const { id } = await ctx.params
-  const sb = await supabaseServer()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'unauth' }, { status: 401 })
+type Ctx = { params: Promise<{ id: string }> }
 
-  const body = await req.json()
-  const { data, error } = await sb.from('kb_entries')
-    .update(body)
-    .eq('id', id)
-    .eq('owner', user.id)
-    .select()
-    .single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+export async function GET(_req: NextRequest, { params }: Ctx) {
+  const { id } = await params
+  const supabase = await supabaseServer()
+  const { data, error } = await supabase.from('kb_entries').select('*').eq('id', id).single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 404 })
   return NextResponse.json(data)
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const { id } = await ctx.params
-  const sb = await supabaseServer()
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'unauth' }, { status: 401 })
+export async function PUT(req: NextRequest, { params }: Ctx) {
+  const { id } = await params
+  const body = await req.json()
+  const supabase = await supabaseServer()
+  const { error } = await supabase.from('kb_entries').update(body).eq('id', id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  return NextResponse.json({ ok: true })
+}
 
-  const { error } = await sb.from('kb_entries')
-    .delete()
-    .eq('id', id)
-    .eq('owner', user.id)
-
+export async function DELETE(_req: NextRequest, { params }: Ctx) {
+  const { id } = await params
+  const supabase = await supabaseServer()
+  const { error } = await supabase.from('kb_entries').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ ok: true })
 }
