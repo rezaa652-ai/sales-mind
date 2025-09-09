@@ -2,32 +2,32 @@
   "name": "sales-mind",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
+  "engines": { "node": ">=18.18 <21" },
+  "overrides": {
+    "debug": "4.3.4"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "next lint"
   },
-  "overrides": {
-  "debug": "4.3.4"
-}
   "dependencies": {
-    "@supabase/ssr": "^0.7.0",
-    "@supabase/supabase-js": "^2.57.2",
+    "@supabase/ssr": "^0.5.0",
+    "@supabase/supabase-js": "^2.45.0",
     "next": "15.5.2",
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "openai": "^4.63.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "15.5.2",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.10",
+    "typescript": "^5.6.2",
+    "@types/react": "^18.3.5",
+    "@types/node": "^20.14.12",
+    "eslint": "^9.9.0"
   }
 }
-"engines": { "node": ">=18.18 <21" }
