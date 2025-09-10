@@ -1,29 +1,37 @@
+'use client'
 import Link from 'next/link'
-import { supabaseServer } from '@/lib/supabaseServer'
-import { redirect } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 
-export default async function AppLayout({ children }:{children:React.ReactNode}){
-  const sb = await supabaseServer()
-  const { data:{ user } } = await sb.auth.getUser()
-  if(!user) redirect('/login')
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+  const links = [
+    { href: '/app/qa', label: 'Q&A' },
+    { href: '/app/profiles', label: 'Profiles' },
+    { href: '/app/company', label: 'Company' },
+    { href: '/app/kb', label: 'Knowledge Base' },
+    { href: '/app/events', label: 'Events' },
+    { href: '/app/settings', label: 'Settings' },
+  ]
+
   return (
-    <div className="min-h-screen grid md:grid-cols-[220px_1fr]">
-      <aside className="border-r p-4">
-        <h2 className="font-semibold mb-3">Sales Mind</h2>
-        <nav className="space-y-2 text-sm">
-          <Link href="/app/dashboard">Dashboard</Link>
-          <Link href="/app/qna">Q&amp;A</Link>
-          <Link href="/app/profiles">Profiles</Link>
-          <Link href="/app/company">Company</Link>
-          <Link href="/app/kb">KB</Link>
-          <Link href="/app/events">Events</Link>
-          <Link href="/app/settings">Settings</Link>
+    <div className="flex min-h-screen">
+      <aside className="w-48 border-r bg-gray-50 p-4">
+        <h2 className="font-bold mb-4">SalesMind</h2>
+        <nav className="flex flex-col gap-2">
+          {links.map(l => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className={`p-2 rounded ${pathname===l.href ? 'bg-blue-100 text-blue-600 font-medium' : 'hover:bg-gray-100'}`}
+            >
+              {l.label}
+            </Link>
+          ))}
         </nav>
-        <form action="/auth/signout" method="post" className="mt-6">
-          <button className="text-sm underline">Logga ut</button>
-        </form>
       </aside>
-      <main className="p-6 max-w-3xl">{children}</main>
+      <main className="flex-1 p-6">
+        {children}
+      </main>
     </div>
   )
 }
