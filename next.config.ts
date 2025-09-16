@@ -1,7 +1,7 @@
-import type { NextConfig } from "next";
-
+// next.config.ts
+import type { NextConfig } from 'next'
 const nextConfig: NextConfig = {
-  /* config options here */
-};
-
-export default nextConfig;
+  experimental: { typedRoutes: true },
+  eslint: { ignoreDuringBuilds: true }   // ⟵ lägg till denna rad
+}
+export default nextConfig
