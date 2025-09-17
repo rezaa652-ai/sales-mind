@@ -1,5 +1,15 @@
+// app/app/qa/page.tsx
 'use client'
 import { useEffect, useState } from 'react'
+
+async function safeJsonArray(res: Response){
+  try {
+    const j = await res.json()
+    return Array.isArray(j) ? j : []
+  } catch {
+    return []
+  }
+}
 
 export default function QAPage(){
   const [companies,setCompanies]=useState<any[]>([])
@@ -7,25 +17,57 @@ export default function QAPage(){
   const [form,setForm]=useState<any>({ company_id:'', profile_id:'', question:'', goal:'', segment:'', channel:'', numbers:'' })
   const [ans,setAns]=useState<any>(null)
   const [feedback,setFeedback]=useState({ rating: 0, used: false, tags: '' })
+  const [loading,setLoading]=useState(true)
+  const [error,setError]=useState<string>('')
 
-  async function load(){
-    const c = await fetch('/api/company'); setCompanies(await c.json())
-    const p = await fetch('/api/profiles'); setProfiles(await p.json())
-  }
-  useEffect(()=>{ load() },[])
+  useEffect(()=>{
+    (async ()=>{
+      setLoading(true)
+      setError('')
+      try{
+        const cRes = await fetch('/api/company')
+        const pRes = await fetch('/api/profiles')
+        const c = await safeJsonArray(cRes)
+        const p = await safeJsonArray(pRes)
+        setCompanies(c)
+        setProfiles(p)
+      }catch(e:any){
+        setError(e?.message || 'Kunde inte ladda data')
+      }finally{
+        setLoading(false)
+      }
+    })()
+  },[])
 
   async function getAnswer(){
     setAns(null)
-    const r = await fetch('/api/qa', { method:'POST', body: JSON.stringify(form) })
-    const data = await r.json()
-    setAns(data)
+    setError('')
+    try{
+      const r = await fetch('/api/qa', { method:'POST', body: JSON.stringify(form) })
+      if(!r.ok){
+        const j = await r.json().catch(()=>({}))
+        throw new Error(j?.error || `API error ${r.status}`)
+      }
+      const data = await r.json()
+      setAns(data)
+    }catch(e:any){
+      setError(e?.message || 'Kunde inte hämta svar')
+    }
   }
 
   async function saveFeedback(){
     if(!ans?.id) return
-    await fetch(`/api/events/${ans.id}`, { method:'PUT', body: JSON.stringify(feedback) })
-    alert('Feedback sparad')
+    try{
+      const r = await fetch(`/api/events/${ans.id}`, { method:'PUT', body: JSON.stringify(feedback) })
+      if(!r.ok) throw new Error('Fel vid sparande')
+      alert('Feedback sparad')
+    }catch(e:any){
+      alert(e?.message || 'Fel vid sparande')
+    }
   }
+
+  if (loading) return <div>Laddar…</div>
+  if (error) return <div className="text-red-600">Fel: {error}</div>
 
   return (
     <div className="space-y-6">
