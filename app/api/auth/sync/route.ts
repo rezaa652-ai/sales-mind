@@ -16,8 +16,6 @@ function makeClient(req: NextRequest, res: NextResponse) {
   )
 }
 
-}
-
 export async function POST(req: NextRequest) {
   const res = NextResponse.json({ ok: true })
   try {
