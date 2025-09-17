@@ -16,8 +16,6 @@ function makeClient(req: NextRequest, res: NextResponse) {
   )
 }
 
-export async function GET() {
-  return NextResponse.json({ ok: true, method: 'GET', route: '/api/auth/sync' })
 }
 
 export async function POST(req: NextRequest) {
