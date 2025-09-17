@@ -12,13 +12,9 @@ export async function supabaseServer() {
         get(name: string) {
           return cookieStore.get(name)?.value
         },
-        set(name: string, value: string, options: any) {
-          // Viktigt: låt servern kunna uppdatera/refresh:a cookies
-          cookieStore.set({ name, value, ...options })
-        },
-        remove(name: string, options: any) {
-          cookieStore.set({ name, value: '', ...options, maxAge: 0 })
-        },
+        // I server components kan vi inte skriva cookies – låt middleware/APIs göra det
+        set() {},
+        remove() {},
       },
     }
   )
