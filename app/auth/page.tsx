@@ -1,74 +1,47 @@
 // app/auth/page.tsx
 'use client'
-import { FormEvent, useState } from 'react'
+import { useState } from 'react'
 import { supabaseBrowser } from '@/lib/supabaseBrowser'
 import { useRouter } from 'next/navigation'
 
 export default function AuthPage(){
+  const s = supabaseBrowser()
   const router = useRouter()
-  const [mode,setMode]=useState<'login'|'signup'>('login')
-  const [email,setEmail]=useState('')
-  const [password,setPassword]=useState('')
-  const [loading,setLoading]=useState(false)
-  const [error,setError]=useState<string|undefined>()
+  const [email,setEmail] = useState('')
+  const [pass,setPass] = useState('')
+  const [mode,setMode] = useState<'login'|'signup'>('login')
+  const [msg,setMsg] = useState('')
 
-  async function onSubmit(e: FormEvent){
+  async function submit(e:React.FormEvent){
     e.preventDefault()
-    setLoading(true); setError(undefined)
-    const supabase = supabaseBrowser()
+    setMsg('')
     try {
-      if(mode==='signup'){
-        const { error } = await supabase.auth.signUp({ email, password })
-        if(error) throw error
-        alert('Check your email to confirm your account.')
-        router.push('/auth')
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if(error) throw error
-        router.push('/app/qa')
-      }
-    } catch(err:any){
-      setError(err?.message || 'Auth error')
-    } finally {
-      setLoading(false)
+      const fn = mode==='login' ? s.auth.signInWithPassword : s.auth.signUp
+      const { error } = await fn({ email, password: pass })
+      if (error) throw error
+      router.push('/app/qa')
+    } catch (err: unknown) {
+      const message = (err as { message?: string })?.message ?? 'Auth error'
+      setMsg(message)
     }
   }
 
   return (
     <div className="min-h-screen grid place-items-center p-6">
-      <div className="w-full max-w-sm border rounded-xl p-6">
+      <form onSubmit={submit} className="w-full max-w-sm border rounded-xl p-6">
         <h1 className="text-xl font-semibold mb-4">{mode==='login'?'Logga in':'Skapa konto'}</h1>
-        <form onSubmit={onSubmit} className="grid gap-3">
-          <input
-            className="border rounded p-2"
-            placeholder="E-post"
-            type="email"
-            value={email}
-            onChange={e=>setEmail(e.target.value)}
-            required
-          />
-          <input
-            className="border rounded p-2"
-            placeholder="Lösenord"
-            type="password"
-            value={password}
-            onChange={e=>setPassword(e.target.value)}
-            required
-          />
-          {error && <p className="text-red-600 text-sm">{error}</p>}
-          <button disabled={loading} className="bg-[var(--brand,#2563eb)] text-white rounded p-2">
-            {loading ? 'Bearbetar…' : (mode==='login'?'Logga in':'Skapa konto')}
-          </button>
-        </form>
-        <div className="text-sm mt-3">
-          {mode==='login' ? (
-            <button className="underline" onClick={()=>setMode('signup')}>Behöver du ett konto? Skapa konto</button>
-          ) : (
-            <button className="underline" onClick={()=>setMode('login')}>Har du konto? Logga in</button>
-          )}
-        </div>
-      </div>
+        <label className="block text-sm mb-2">E-post
+          <input className="w-full border rounded p-2" type="email" value={email} onChange={e=>setEmail(e.target.value)} required/>
+        </label>
+        <label className="block text-sm mb-4">Lösenord
+          <input className="w-full border rounded p-2" type="password" value={pass} onChange={e=>setPass(e.target.value)} required/>
+        </label>
+        {msg && <p className="text-red-600 text-sm mb-3">{msg}</p>}
+        <button className="w-full bg-[var(--brand)] text-white rounded p-2">{mode==='login'?'Logga in':'Skapa konto'}</button>
+        <button type="button" className="w-full mt-2 underline" onClick={()=>setMode(mode==='login'?'signup':'login')}>
+          {mode==='login'?'Skapa nytt konto':'Har konto? Logga in'}
+        </button>
+      </form>
     </div>
   )
 }
-

@@ -10,6 +10,8 @@ export async function supabaseServer() {
     {
       cookies: {
         get: (name: string) => cookieStore.get(name)?.value,
+        set: () => {},
+        remove: () => {},
       },
     }
   )

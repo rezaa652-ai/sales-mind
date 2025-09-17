@@ -1,9 +1,20 @@
 // app/auth/signout/route.ts
 import { NextResponse } from 'next/server'
-import { supabaseServer } from '@/lib/supabaseServer'
+import { createServerClient } from '@supabase/ssr'
 
-export async function POST() {
-  const supabase = await supabaseServer()
+export async function POST(req: Request) {
+  const res = NextResponse.redirect(new URL('/auth', req.url))
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (name) => req.headers.get('cookie') || undefined,
+        set: () => {},
+        remove: () => {},
+      },
+    }
+  )
   await supabase.auth.signOut()
-  return NextResponse.redirect(new URL('/auth', process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'))
+  return res
 }
