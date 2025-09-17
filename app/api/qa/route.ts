@@ -1,18 +1,20 @@
 import { NextResponse, NextRequest } from 'next/server'
+import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import OpenAI from 'openai'
 
-function server(req: NextRequest){
-  const res = NextResponse.next()
-  return { supabase: createServerClient(
+async function sb(){
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { cookies: {
-      get: (n)=>req.cookies.get(n)?.value,
-      set: (n,v,o)=>res.cookies.set({name:n,value:v,...o}),
-      remove: (n,o)=>res.cookies.set({name:n,value:'',...o,maxAge:0}),
+      get: (n: string) => cookieStore.get(n)?.value,
+      set: () => {},
+      remove: () => {},
     } }
-  ), res }
+  )
+  return { supabase }
 }
 
 function systemPrompt(profile:any, company:any){
@@ -41,7 +43,7 @@ function userPrompt(input:any, kbText:string, company:any, profile:any){
 }
 
 export async function POST(req: NextRequest){
-  const { supabase } = server(req)
+  const { supabase } = await sb()
   const { data:{ user } } = await supabase.auth.getUser()
   if(!user) return NextResponse.json({error:'unauth'},{status:401})
 

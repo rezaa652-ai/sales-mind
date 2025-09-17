@@ -2,8 +2,9 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  experimental: { typedRoutes: false }, // undvik typedRoutes-problem tills vidare
-  eslint: { ignoreDuringBuilds: true }, // låt inte ESLint stoppa build
+  // typedRoutes flyttades från experimental
+  typedRoutes: false,
+  eslint: { ignoreDuringBuilds: true },
 }
 
 export default nextConfig
