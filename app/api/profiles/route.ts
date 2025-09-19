@@ -1,23 +1,9 @@
+// app/api/profiles/route.ts
 import { NextResponse, NextRequest } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
+import { supabaseFromRequest } from '@/lib/supabaseRoute'
 
-async function sb(){
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: {
-      get: (n: string) => cookieStore.get(n)?.value,
-      set: () => {},
-      remove: () => {},
-    } }
-  )
-  return { supabase }
-}
-
-export async function GET(_req: NextRequest){
-  const { supabase } = await sb()
+export async function GET(req: NextRequest){
+  const { supabase } = supabaseFromRequest(req)
   const { data: { user } } = await supabase.auth.getUser()
   if(!user) return NextResponse.json({error:'unauth'}, {status:401})
   const { data, error } = await supabase
@@ -30,18 +16,23 @@ export async function GET(_req: NextRequest){
 }
 
 export async function POST(req: NextRequest){
-  const { supabase } = await sb()
+  const { supabase } = supabaseFromRequest(req)
   const { data: { user } } = await supabase.auth.getUser()
   if(!user) return NextResponse.json({error:'unauth'},{status:401})
-  const body = await req.json()
 
-  // Free-plan: max 1 profile
+  // FREE PLAN: max 1 profile
   const { count } = await supabase
     .from('profiles_sales')
-    .select('*', { count:'exact', head:true })
+    .select('*', { count: 'exact', head: true })
     .eq('owner', user.id)
-  if ((count ?? 0) >= 1) return NextResponse.json({ error:'Free-plan: max 1 profile' }, { status:403 })
+  if ((count ?? 0) >= 1) {
+    return NextResponse.json(
+      { error: 'Free-plan tillåter max 1 profile. Ta bort den gamla eller uppgradera.' },
+      { status: 403 }
+    )
+  }
 
+  const body = await req.json()
   const { data, error } = await supabase
     .from('profiles_sales')
     .insert([{ ...body, owner: user.id }])

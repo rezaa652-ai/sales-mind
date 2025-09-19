@@ -1,28 +1,14 @@
+// app/api/qa/route.ts
 import { NextResponse, NextRequest } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
+import { supabaseFromRequest } from '@/lib/supabaseRoute'
 import OpenAI from 'openai'
-
-async function sb(){
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: {
-      get: (n: string) => cookieStore.get(n)?.value,
-      set: () => {},
-      remove: () => {},
-    } }
-  )
-  return { supabase }
-}
 
 function systemPrompt(profile:any, company:any){
   return [
     `Du är en professionell säljcoach. Svara på ${profile?.language||'Svenska'}.`,
     `Ton: ${profile?.tone||'Konkret, respektfull, kort'}.`,
     company?.compliance ? `Compliance: ${company.compliance}` : '',
-    profile?.proof ? `Proof: ${profile.proof}` : (company?.proof_points ? `Proof: ${company.proof_points}`:''),
+    profile?.proof ? `Proof: ${profile.proof}` : (company?.proof_points ? `Proof: ${company?.proof_points}`:''),
     profile?.callback_windows ? `Callback windows: ${profile.callback_windows}` : '',
     profile?.sales_targets ? `Säljtarget: ${profile.sales_targets}` : '',
     `Returnera STRIKT JSON: one_liner, why, ack, short_script, full_script, math, next_step.`
@@ -43,13 +29,28 @@ function userPrompt(input:any, kbText:string, company:any, profile:any){
 }
 
 export async function POST(req: NextRequest){
-  const { supabase } = await sb()
+  const { supabase } = supabaseFromRequest(req)
   const { data:{ user } } = await supabase.auth.getUser()
   if(!user) return NextResponse.json({error:'unauth'},{status:401})
 
   const input = await req.json()
   const profileId = input.profile_id as string|undefined
   const companyId = input.company_id as string|undefined
+
+  // FREE PLAN: 30 events per 30 dagar
+  const sinceIso = new Date(Date.now() - 30*24*60*60*1000).toISOString()
+  const { count: evCount, error: cntErr } = await supabase
+    .from('events')
+    .select('*', { count: 'exact', head: true })
+    .eq('owner', user.id)
+    .gte('ts', sinceIso)
+  if (cntErr) return NextResponse.json({ error: cntErr.message }, { status: 400 })
+  if ((evCount ?? 0) >= 30) {
+    return NextResponse.json(
+      { error: 'Free-plan gräns nådd: 30 Q&A-svar per 30 dagar.' },
+      { status: 403 }
+    )
+  }
 
   const { data: profile } = profileId
     ? await supabase.from('profiles_sales').select('*').eq('id', profileId).eq('owner', user.id).single()
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest){
   // KB “RAG-light”
   let kbText = ''
   if (input.question) {
-    const q = input.question.slice(0, 120)
+    const q = String(input.question).slice(0, 120)
     const { data: kb } = await supabase
       .from('kb_entries')
       .select('*')
@@ -71,16 +72,6 @@ export async function POST(req: NextRequest){
       .order('created_at', { ascending: false })
       .limit(1)
     kbText = kb?.[0]?.best_practice || ''
-  }
-
-  // Free-plan: max 30 events senaste 30 dagar
-  const { data: last30 } = await supabase
-    .from('events')
-    .select('id, ts')
-    .eq('owner', user.id)
-    .gte('ts', new Date(Date.now() - 30*24*60*60*1000).toISOString())
-  if ((last30?.length ?? 0) >= 30) {
-    return NextResponse.json({ error: 'Free-plan: 30 Q&A per 30 dagar' }, { status: 403 })
   }
 
   const sys = systemPrompt(profile, company)
@@ -112,7 +103,6 @@ export async function POST(req: NextRequest){
     }
   }
 
-  // spara event
   const { data: saved, error } = await supabase.from('events').insert([{
     owner: user.id,
     company: company?.id || null,

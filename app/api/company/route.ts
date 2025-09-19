@@ -1,25 +1,9 @@
+// app/api/company/route.ts
 import { NextResponse, NextRequest } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
+import { supabaseFromRequest } from '@/lib/supabaseRoute'
 
-async function sb(){
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get: (name: string) => cookieStore.get(name)?.value,
-        set: () => {},
-        remove: () => {},
-      },
-    }
-  )
-  return { supabase }
-}
-
-export async function GET(_req: NextRequest){
-  const { supabase } = await sb()
+export async function GET(req: NextRequest){
+  const { supabase } = supabaseFromRequest(req)
   const { data: { user } } = await supabase.auth.getUser()
   if(!user) return NextResponse.json({error:'unauth'}, {status:401})
   const { data, error } = await supabase
@@ -32,18 +16,23 @@ export async function GET(_req: NextRequest){
 }
 
 export async function POST(req: NextRequest){
-  const { supabase } = await sb()
+  const { supabase } = supabaseFromRequest(req)
   const { data: { user } } = await supabase.auth.getUser()
   if(!user) return NextResponse.json({error:'unauth'},{status:401})
-  const body = await req.json()
 
-  // Free-plan: max 1 company
+  // FREE PLAN: tillåt max 1 company
   const { count } = await supabase
     .from('company_profiles')
-    .select('*', { count:'exact', head:true })
+    .select('*', { count: 'exact', head: true })
     .eq('owner', user.id)
-  if ((count ?? 0) >= 1) return NextResponse.json({ error:'Free-plan: max 1 company' }, { status:403 })
+  if ((count ?? 0) >= 1) {
+    return NextResponse.json(
+      { error: 'Free-plan tillåter max 1 company. Ta bort den gamla eller uppgradera.' },
+      { status: 403 }
+    )
+  }
 
+  const body = await req.json()
   const { data, error } = await supabase
     .from('company_profiles')
     .insert([{ ...body, owner: user.id }])

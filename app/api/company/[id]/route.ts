@@ -1,24 +1,10 @@
+// app/api/company/[id]/route.ts
 import { NextResponse, NextRequest } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
-
-async function sb(){
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: {
-      get: (n: string) => cookieStore.get(n)?.value,
-      set: () => {},
-      remove: () => {},
-    } }
-  )
-  return { supabase }
-}
+import { supabaseFromRequest } from '@/lib/supabaseRoute'
 
 export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string }> }){
   const { id } = await ctx.params
-  const { supabase } = await sb()
+  const { supabase } = supabaseFromRequest(req)
   const { data:{ user } } = await supabase.auth.getUser()
   if(!user) return NextResponse.json({error:'unauth'},{status:401})
   const body = await req.json()
@@ -33,9 +19,9 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
   return NextResponse.json(data)
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }){
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }){
   const { id } = await ctx.params
-  const { supabase } = await sb()
+  const { supabase } = supabaseFromRequest(req)
   const { data:{ user } } = await supabase.auth.getUser()
   if(!user) return NextResponse.json({error:'unauth'},{status:401})
   const { error } = await supabase
