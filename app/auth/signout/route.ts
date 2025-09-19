@@ -1,20 +1,33 @@
 // app/auth/signout/route.ts
-import { NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
-export async function POST(req: Request) {
+function makeClient(req: NextRequest) {
   const res = NextResponse.redirect(new URL('/auth', req.url))
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name) => req.headers.get('cookie') || undefined,
-        set: () => {},
-        remove: () => {},
+        getAll() {
+          return req.cookies.getAll()
+        },
+        setAll(cookies) {
+          cookies.forEach(({ name, value, options }) => {
+            res.cookies.set(name, value, options as CookieOptions)
+          })
+        },
       },
     }
   )
+  return { supabase, res }
+}
+
+async function doSignOut(req: NextRequest) {
+  const { supabase, res } = makeClient(req)
   await supabase.auth.signOut()
   return res
 }
+
+export async function POST(req: NextRequest) { return doSignOut(req) }
+export async function GET(req: NextRequest)  { return doSignOut(req) }
