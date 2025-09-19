@@ -3,15 +3,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
 function makeClient(req: NextRequest) {
-  const res = NextResponse.redirect(new URL('/auth', req.url))
+  // Viktigt: 303 istället för default 307
+  const res = NextResponse.redirect(new URL('/auth', req.url), 303)
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return req.cookies.getAll()
-        },
+        getAll() { return req.cookies.getAll() },
         setAll(cookies) {
           cookies.forEach(({ name, value, options }) => {
             res.cookies.set(name, value, options as CookieOptions)
