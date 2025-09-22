@@ -1,66 +1,81 @@
 'use client'
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import Card from '@/components/ui/Card'
+import Button from '@/components/ui/Button'
+import Input from '@/components/ui/Input'
+import Textarea from '@/components/ui/Textarea'
 import Modal from '@/components/Modal'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import Skeleton from '@/components/ui/Skeleton'
 
-export default function KBPage(){
-  const [rows,setRows]=useState<any[]>([])
-  const [open,setOpen]=useState(false)
-  const [form,setForm]=useState<any>({ signal:'', best_practice:'', profile_name:'' })
-  const [editing,setEditing]=useState<any>(null)
+type Row = { id: string; signal: string; best_practice: string; profile_name: string }
 
-  async function load(){ setRows(await (await fetch('/api/kb')).json()) }
-  useEffect(()=>{ load() },[])
+export default function KBPage() {
+  const [rows, setRows] = useState<Row[] | null>(null)
+  const [open, setOpen] = useState(false)
+  const empty: Partial<Row> = { signal:'', best_practice:'', profile_name:'' }
+  const [form, setForm] = useState<Partial<Row>>(empty)
+  const [editing, setEditing] = useState<Row | null>(null)
 
-  async function save(){
+  async function load() {
+    const r = await fetch('/api/kb')
+    setRows(r.ok ? await r.json() : [])
+  }
+  useEffect(() => { load() }, [])
+
+  async function save() {
     const url = editing ? `/api/kb/${editing.id}` : '/api/kb'
     const method = editing ? 'PUT' : 'POST'
-    const res = await fetch(url,{ method, body: JSON.stringify(form) })
-    if(res.ok){ setOpen(false); setEditing(null); setForm({ signal:'', best_practice:'', profile_name:'' }); load() }
-    else alert('Fel vid sparande')
+    const res = await fetch(url, { method, body: JSON.stringify(form) })
+    if (res.ok) { setOpen(false); setEditing(null); setForm(empty); load() } else alert('Fel vid sparande')
   }
-  async function del(id:string){
-    const res = await fetch(`/api/kb/${id}`,{ method:'DELETE' })
-    if(res.ok){ load() } else alert('Fel vid borttagning')
+  async function del(id: string) {
+    const res = await fetch(`/api/kb/${id}`, { method:'DELETE' })
+    if (res.ok) load(); else alert('Fel vid borttagning')
   }
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
+      <div className="page-header">
         <h1 className="text-xl font-semibold">Knowledge Base</h1>
-        <button className="bg-[var(--brand)] text-white rounded-md px-4 py-2" onClick={()=>{ setEditing(null); setForm({ signal:'', best_practice:'', profile_name:'' }); setOpen(true) }}>+ Ny entry</button>
+        <Button onClick={() => { setEditing(null); setForm(empty); setOpen(true) }}>+ Ny entry</Button>
       </div>
 
-      <div className="border rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50"><tr>
-            <th className="p-3 text-left">Signal</th><th className="p-3 text-left">Best practice</th><th className="p-3 text-left">Profil</th><th></th>
-          </tr></thead>
-          <tbody>
-            {rows.length===0 && <tr><td className="p-6 text-slate-500" colSpan={4}>Inga KB entries ännu.</td></tr>}
-            {rows.map(r=>(
-              <tr key={r.id} className="border-t">
-                <td className="p-3">{r.signal}</td>
-                <td className="p-3">{r.best_practice}</td>
-                <td className="p-3">{r.profile_name}</td>
-                <td className="p-3 text-right">
-                  <button className="mr-2 underline" onClick={()=>{ setEditing(r); setForm(r); setOpen(true) }}>Redigera</button>
-                  <ConfirmDialog onConfirm={()=>del(r.id)}>
-                    <button className="text-red-600 underline">Ta bort</button>
-                  </ConfirmDialog>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Card>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr><th className="p-3 text-left">Signal</th><th className="p-3 text-left">Best practice</th><th className="p-3 text-left">Profil</th><th className="p-3"></th></tr></thead>
+            <tbody>
+              {rows === null && (
+                <>
+                  <tr><td className="p-3"><Skeleton className="h-5 w-56" /></td><td className="p-3"><Skeleton className="h-5 w-96" /></td><td className="p-3"><Skeleton className="h-5 w-40" /></td><td></td></tr>
+                </>
+              )}
+              {rows && rows.length === 0 && <tr><td className="p-6 text-slate-500" colSpan={4}>Inga KB entries ännu.</td></tr>}
+              {(rows || []).map(r => (
+                <tr key={r.id}>
+                  <td className="p-3">{r.signal}</td>
+                  <td className="p-3">{r.best_practice}</td>
+                  <td className="p-3">{r.profile_name}</td>
+                  <td className="p-3 text-right whitespace-nowrap">
+                    <Button variant="ghost" size="sm" onClick={() => { setEditing(r); setForm(r); setOpen(true) }}>Redigera</Button>
+                    <ConfirmDialog onConfirm={() => del(r.id)}>
+                      <Button variant="danger" size="sm">Ta bort</Button>
+                    </ConfirmDialog>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
       {open && (
-        <Modal title={editing?'Redigera KB':'Ny KB entry'} onClose={()=>setOpen(false)} onSubmit={save}>
+        <Modal title={editing ? 'Redigera KB' : 'Ny KB entry'} onClose={() => setOpen(false)} onSubmit={save}>
           <div className="grid gap-3">
-            <label className="text-sm">Signal<input className="border rounded p-2 w-full" value={form.signal} onChange={e=>setForm({...form, signal:e.target.value})}/></label>
-            <label className="text-sm">Best practice<textarea className="border rounded p-2 w-full" value={form.best_practice} onChange={e=>setForm({...form, best_practice:e.target.value})}/></label>
-            <label className="text-sm">Profil<input className="border rounded p-2 w-full" value={form.profile_name} onChange={e=>setForm({...form, profile_name:e.target.value})}/></label>
+            <Input label="Signal" value={form.signal || ''} onChange={e => setForm({ ...form, signal: e.target.value })} />
+            <Textarea label="Best practice" value={form.best_practice || ''} onChange={e => setForm({ ...form, best_practice: e.target.value })} />
+            <Input label="Profil" value={form.profile_name || ''} onChange={e => setForm({ ...form, profile_name: e.target.value })} />
           </div>
         </Modal>
       )}
