@@ -1,20 +1,12 @@
-import Card from '@/components/ui/Card'
+// app/app/settings/page.tsx
 import { supabaseServer } from '@/lib/supabaseServer'
+import SettingsClient from './SettingsClient'
 
-export default async function SettingsPage() {
+export const metadata = { title: 'Settings · SalesMind' }
+
+export default async function SettingsPage(){
   const supabase = await supabaseServer()
   const { data: { user } } = await supabase.auth.getUser()
-  return (
-    <div>
-      <div className="page-header">
-        <h1 className="text-xl font-semibold">Settings</h1>
-      </div>
-      <Card>
-        <p><b>User:</b> {user?.email}</p>
-        <form action="/auth/signout" method="post" className="mt-3">
-          <button className="underline">Logga ut</button>
-        </form>
-      </Card>
-    </div>
-  )
+  const email = user?.email ?? ''
+  return <SettingsClient initialEmail={email} />
 }
