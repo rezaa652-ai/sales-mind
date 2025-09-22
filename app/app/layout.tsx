@@ -1,86 +1,44 @@
+// app/app/layout.tsx
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import React from 'react'
-import { cn } from '@/lib/cn'
-
-const LINKS = [
-  { href: '/app/qa', label: 'Q&A' },
-  { href: '/app/profiles', label: 'Profiles' },
-  { href: '/app/company', label: 'Company' },
-  { href: '/app/kb', label: 'Knowledge Base' },
-  { href: '/app/events', label: 'Events' },
-  { href: '/app/settings', label: 'Settings' },
-]
+import { useEffect, useState } from 'react'
+import { getLangFromCookie, type Lang, t } from '@/lib/i18n'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const [lang, setLang] = useState<Lang>('sv')
+
+  useEffect(() => {
+    setLang(getLangFromCookie())
+  }, [])
+
+  const links = [
+    { href: '/app/qa', label: t(lang, 'nav.qa') },
+    { href: '/app/profiles', label: t(lang, 'nav.profiles') },
+    { href: '/app/company', label: t(lang, 'nav.company') },
+    { href: '/app/kb', label: t(lang, 'nav.kb') },
+    { href: '/app/events', label: t(lang, 'nav.events') },
+    { href: '/app/settings', label: t(lang, 'nav.settings') },
+  ]
+
   return (
-    <div className="min-h-dvh">
-      {/* Top bar */}
-      <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-white/80 backdrop-blur">
-        <div className="container flex h-14 items-center justify-between">
-          <Link href="/app/qa" className="font-semibold">SalesMind</Link>
-          <nav className="hidden md:flex items-center gap-2">
-            {LINKS.map(l => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className={cn(
-                  'rounded-md px-3 py-2 text-sm hover:bg-gray-100',
-                  pathname === l.href && 'bg-blue-100 text-blue-700 font-medium'
-                )}
-              >
-                {l.label}
-              </Link>
-            ))}
-          </nav>
-          <div className="md:hidden text-sm text-gray-600">Meny ↓</div>
-        </div>
-      </header>
-
-      {/* Body with sidebar (desktop) */}
-      <div className="container grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6 py-6">
-        <aside className="hidden md:block">
-          <div className="rounded-xl border border-[var(--border)] bg-white p-3">
-            <nav className="flex flex-col">
-              {LINKS.map(l => (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  className={cn(
-                    'rounded-md px-3 py-2 text-sm hover:bg-gray-100',
-                    pathname === l.href && 'bg-blue-100 text-blue-700 font-medium'
-                  )}
-                >
-                  {l.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-        </aside>
-
-        <main className="min-w-0">{children}</main>
-      </div>
-
-      {/* Bottom nav (mobile) */}
-      <nav className="fixed bottom-0 inset-x-0 z-40 border-t border-[var(--border)] bg-white/95 backdrop-blur md:hidden">
-        <ul className="grid grid-cols-3">
-          {LINKS.slice(0, 6).map(l => (
-            <li key={l.href}>
-              <Link
-                href={l.href}
-                className={cn(
-                  'block text-center py-3 text-sm',
-                  pathname === l.href ? 'text-blue-700 font-semibold' : 'text-gray-700'
-                )}
-              >
-                {l.label}
-              </Link>
-            </li>
+    <div className="flex min-h-screen">
+      <aside className="w-56 border-r bg-gray-50 p-4">
+        <h2 className="font-bold mb-4">SalesMind</h2>
+        <nav className="flex flex-col gap-2">
+          {links.map(l => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className={`p-2 rounded ${pathname===l.href ? 'bg-blue-100 text-blue-600 font-medium' : 'hover:bg-gray-100'}`}
+            >
+              {l.label}
+            </Link>
           ))}
-        </ul>
-      </nav>
+        </nav>
+      </aside>
+      <main className="flex-1 p-6 max-w-[960px]">{children}</main>
     </div>
   )
 }
