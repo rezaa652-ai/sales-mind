@@ -1,199 +1,129 @@
 'use client'
-import { useEffect, useState, FormEvent } from 'react'
-import { t, type Lang, getLang, setLangCookie } from '@/lib/i18n'
+import { useEffect, useState } from 'react'
+import { getLang, setLangCookie, t, type Lang } from '@/lib/i18n'
 import { supabaseBrowser } from '@/lib/supabaseBrowser'
 
 type Tab = 'profile' | 'billing' | 'language'
 
 export default function SettingsPage(){
-  const [lang, setLang] = useState<Lang>('sv')
-  const [tab, setTab] = useState<Tab>('profile')
-
-  const [email, setEmail] = useState('')
-  const [emailStatus, setEmailStatus] = useState<'idle'|'saving'|'done'|'err'>('idle')
-
-  const [password, setPassword] = useState('')
-  const [passStatus, setPassStatus] = useState<'idle'|'saving'|'done'|'err'>('idle')
-
-  const [selectedLang, setSelectedLang] = useState<Lang>('sv')
+  const [lang,setLang] = useState<Lang>('sv')
+  const [tab,setTab] = useState<Tab>('profile')
+  const [email,setEmail] = useState<string>('')
 
   useEffect(()=>{
-    const l = getLang()
-    setLang(l)
-    setSelectedLang(l)
-    ;(async ()=>{
-      try {
-        const s = supabaseBrowser()
-        const { data: { user } } = await s.auth.getUser()
-        if (user?.email) setEmail(user.email)
-      } catch {}
+    setLang(getLang())
+    ;(async()=>{
+      const supabase = supabaseBrowser()
+      const { data } = await supabase.auth.getUser()
+      setEmail(data.user?.email || '')
     })()
   },[])
 
-  async function onEmailSubmit(e: FormEvent){
-    e.preventDefault()
-    if(!email?.trim()) return
-    try {
-      setEmailStatus('saving')
-      const s = supabaseBrowser()
-      const { error } = await s.auth.updateUser({ email })
-      if (error) throw error
-      setEmailStatus('done')
-      setTimeout(()=>setEmailStatus('idle'), 1200)
-    } catch {
-      setEmailStatus('err')
-      setTimeout(()=>setEmailStatus('idle'), 1600)
-    }
+  function changeLang(next: Lang){
+    setLangCookie(next)
+    setLang(next)
   }
 
-  async function onPasswordSubmit(e: FormEvent){
-    e.preventDefault()
-    if(!password || password.length < 6) return
-    try {
-      setPassStatus('saving')
-      const s = supabaseBrowser()
-      const { error } = await s.auth.updateUser({ password })
-      if (error) throw error
-      setPassword('')
-      setPassStatus('done')
-      setTimeout(()=>setPassStatus('idle'), 1200)
-    } catch {
-      setPassStatus('err')
-      setTimeout(()=>setPassStatus('idle'), 1600)
-    }
+  async function signOut(){
+    // POST so we clean cookies server-side
+    await fetch('/auth/signout', { method:'POST' })
+    window.location.href = '/auth'
   }
-
-  function onLangSave(){
-    setLangCookie(selectedLang)
-    setLang(selectedLang)
-    // ensure the whole app picks it up
-    if (typeof window !== 'undefined') window.location.reload()
-  }
-
-  const menu = [
-    { id:'profile',   label: t(lang,'settings.menu.profile') as string,   key:'profile'   as Tab },
-    { id:'billing',   label: t(lang,'settings.menu.billing') as string,   key:'billing'   as Tab },
-    { id:'language',  label: t(lang,'settings.menu.language') as string,  key:'language'  as Tab },
-  ]
 
   return (
-    <div className="flex gap-8">
-      {/* Vertical sub-menu */}
-      <aside className="w-56">
-        <nav className="flex flex-col gap-1">
-          {menu.map(m => (
+    <div className="min-h-screen">
+      <h1 className="text-xl font-semibold mb-4">{t(lang,'settings.title')}</h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6">
+        {/* Vertical menu */}
+        <aside className="border rounded-lg p-3 bg-white">
+          <nav className="flex md:flex-col gap-2">
             <button
-              key={m.id}
-              onClick={()=>setTab(m.key)}
-              className={`text-left px-3 py-2 rounded hover:bg-gray-100 ${
-                tab===m.key ? 'bg-blue-100 text-blue-700 font-medium' : ''
-              }`}
+              className={`text-left px-3 py-2 rounded ${tab==='profile' ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100'}`}
+              onClick={()=>setTab('profile')}
             >
-              {m.label}
+              {t(lang,'settings.menu.profile')}
             </button>
-          ))}
+            <button
+              className={`text-left px-3 py-2 rounded ${tab==='billing' ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100'}`}
+              onClick={()=>setTab('billing')}
+            >
+              {t(lang,'settings.menu.billing')}
+            </button>
+            <button
+              className={`text-left px-3 py-2 rounded ${tab==='language' ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100'}`}
+              onClick={()=>setTab('language')}
+            >
+              {t(lang,'settings.menu.language')}
+            </button>
 
-          {/* subtle divider before logout */}
-          <div className="my-4 border-t border-gray-200" />
+            <hr className="my-3" />
 
-          <form action="/auth/signout" method="post">
-            <button className="w-full text-left px-3 py-2 rounded bg-red-50 text-red-700 hover:bg-red-100">
+            <button
+              className="text-left px-3 py-2 rounded border border-red-200 text-red-600 hover:bg-red-50"
+              onClick={signOut}
+            >
               {t(lang,'settings.logout')}
             </button>
-          </form>
-        </nav>
-      </aside>
+          </nav>
+        </aside>
 
-      {/* Panel content */}
-      <section className="flex-1 max-w-[720px]">
-        {tab==='profile' && (
-          <div className="space-y-6">
-            <h1 className="text-xl font-semibold">{t(lang,'settings.profile.title')}</h1>
-
-            <form onSubmit={onEmailSubmit} className="grid gap-2">
-              <label className="text-sm">{t(lang,'settings.profile.email')}
-                <input
-                  className="mt-1 w-full border rounded p-2"
-                  type="email"
-                  value={email}
-                  placeholder={t(lang,'settings.profile.newEmailPH')}
-                  onChange={e=>setEmail(e.target.value)}
-                />
-              </label>
-              <div className="flex gap-2">
-                <button className="px-4 py-2 rounded bg-[var(--brand)] text-white">
-                  {t(lang,'settings.profile.updateEmail')}
-                </button>
-                {emailStatus==='saving' && <span className="text-sm text-gray-500">{t(lang,'settings.profile.status.saving')}</span>}
-                {emailStatus==='done'   && <span className="text-sm text-green-600">{t(lang,'settings.profile.status.done')}</span>}
-                {emailStatus==='err'    && <span className="text-sm text-red-600">{t(lang,'settings.profile.status.err')}</span>}
+        {/* Content */}
+        <section className="space-y-4">
+          {tab==='profile' && (
+            <div className="border rounded-lg p-4 bg-white">
+              <div className="grid md:grid-cols-2 gap-3">
+                <label className="text-sm">{t(lang,'settings.profile.email')}
+                  <input className="border rounded p-2 w-full" value={email} readOnly />
+                </label>
+                <label className="text-sm">{t(lang,'settings.profile.password')}
+                  <input className="border rounded p-2 w-full" value="••••••••" readOnly />
+                </label>
               </div>
-            </form>
-
-            <form onSubmit={onPasswordSubmit} className="grid gap-2">
-              <label className="text-sm">{t(lang,'settings.profile.password')}
-                <input
-                  className="mt-1 w-full border rounded p-2"
-                  type="password"
-                  value={password}
-                  placeholder={t(lang,'settings.profile.newPassPH')}
-                  onChange={e=>setPassword(e.target.value)}
-                />
-              </label>
-              <div className="flex gap-2">
-                <button className="px-4 py-2 rounded bg-[var(--brand)] text-white">
-                  {t(lang,'settings.profile.updatePassword')}
+              <div className="mt-3">
+                <button className="px-4 py-2 rounded bg-[var(--brand)] text-white hover:opacity-90">
+                  {t(lang,'settings.profile.change')}
                 </button>
-                {passStatus==='saving' && <span className="text-sm text-gray-500">{t(lang,'settings.profile.status.saving')}</span>}
-                {passStatus==='done'   && <span className="text-sm text-green-600">{t(lang,'settings.profile.status.done')}</span>}
-                {passStatus==='err'    && <span className="text-sm text-red-600">{t(lang,'settings.profile.status.err')}</span>}
               </div>
-            </form>
-          </div>
-        )}
+            </div>
+          )}
 
-        {tab==='billing' && (
-          <div className="space-y-4">
-            <h1 className="text-xl font-semibold">{t(lang,'settings.billing.title')}</h1>
-            <p><b>{t(lang,'settings.billing.currentPlan')}:</b> {t(lang,'settings.billing.free')}</p>
-            <div className="flex gap-2">
-              <button className="px-4 py-2 rounded bg-[var(--brand)] text-white">
-                {t(lang,'settings.billing.upgrade')}
-              </button>
-              <button className="px-4 py-2 rounded border">
-                {t(lang,'settings.billing.manage')}
-              </button>
+          {tab==='billing' && (
+            <div className="border rounded-lg p-4 bg-white">
+              <div className="grid md:grid-cols-2 gap-3">
+                <label className="text-sm">{t(lang,'settings.billing.plan')}
+                  <input className="border rounded p-2 w-full" value="Free" readOnly />
+                </label>
+                <div className="flex items-end">
+                  <button className="px-4 py-2 rounded bg-[var(--brand)] text-white hover:opacity-90">
+                    {t(lang,'settings.billing.upgrade')}
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {tab==='language' && (
-          <div className="space-y-4">
-            <h1 className="text-xl font-semibold">{t(lang,'settings.language.title')}</h1>
-            <p className="text-sm text-gray-600">{t(lang,'settings.language.choose')}</p>
-            <div className="flex gap-4 mt-2">
-              <label className="inline-flex items-center gap-2">
-                <input type="radio" name="lang" value="sv"
-                  checked={selectedLang==='sv'} onChange={()=>setSelectedLang('sv')} />
-                {t(lang,'settings.language.sv')}
-              </label>
-              <label className="inline-flex items-center gap-2">
-                <input type="radio" name="lang" value="en"
-                  checked={selectedLang==='en'} onChange={()=>setSelectedLang('en')} />
-                {t(lang,'settings.language.en')}
-              </label>
+          {tab==='language' && (
+            <div className="border rounded-lg p-4 bg-white">
+              <div className="text-sm mb-2">{t(lang,'settings.language.choose')}</div>
+              <div className="flex gap-2">
+                <button
+                  className={`px-3 py-2 rounded border ${lang==='sv' ? 'bg-blue-100 border-blue-300' : 'hover:bg-slate-100'}`}
+                  onClick={()=>changeLang('sv' as Lang)}
+                >
+                  Svenska
+                </button>
+                <button
+                  className={`px-3 py-2 rounded border ${lang==='en' ? 'bg-blue-100 border-blue-300' : 'hover:bg-slate-100'}`}
+                  onClick={()=>changeLang('en' as Lang)}
+                >
+                  English
+                </button>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <button onClick={onLangSave} className="px-4 py-2 rounded bg-[var(--brand)] text-white">
-                {t(lang,'settings.language.save')}
-              </button>
-              <button onClick={()=>setSelectedLang(lang)} className="px-4 py-2 rounded border">
-                {t(lang,'settings.language.cancel')}
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
+          )}
+        </section>
+      </div>
     </div>
   )
 }

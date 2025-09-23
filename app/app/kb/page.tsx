@@ -2,91 +2,141 @@
 import { useEffect, useState } from 'react'
 import Modal from '@/components/Modal'
 import ConfirmDialog from '@/components/ConfirmDialog'
-import { t, type Lang, getLang } from '@/lib/i18n'
+import { getLang, t, type Lang } from '@/lib/i18n'
+
+type KB = {
+  id?: string
+  title?: string
+  signal?: string
+  best_practice?: string
+  tags?: string
+}
 
 export default function KBPage(){
-  const [lang,setLang]=useState<Lang>('sv')
-  const [rows,setRows]=useState<any[]>([])
-  const [open,setOpen]=useState(false)
-  const [form,setForm]=useState<any>({ signal:'', best_practice:'', profile_name:'' })
-  const [editing,setEditing]=useState<any>(null)
+  const [lang, setLang] = useState<Lang>('sv')
+  const [items, setItems] = useState<KB[]>([])
+  const [open, setOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [editing, setEditing] = useState<KB | null>(null)
+  const [form, setForm] = useState<KB>({ title: '', signal: '', best_practice: '', tags: '' })
+
+  useEffect(()=>{ setLang(getLang()) }, [])
+  useEffect(()=>{
+    ;(async()=>{
+      const r = await fetch('/api/kb')
+      setItems(await r.json())
+    })()
+  }, [])
 
   useEffect(()=>{
-    setLang(getLang())
-    load()
-  },[])
+    document.body.style.overflow = open ? 'hidden' : ''
+  }, [open])
 
-  async function load(){ setRows(await (await fetch('/api/kb')).json()) }
+  function openNew(){
+    setEditing(null)
+    setForm({ title: '', signal: '', best_practice: '', tags: '' })
+    setOpen(true)
+  }
+  function openEdit(k: KB){
+    setEditing(k)
+    setForm({ title: k.title||'', signal: k.signal||'', best_practice: k.best_practice||'', tags: k.tags||'' })
+    setOpen(true)
+  }
 
   async function save(){
-    const url = editing ? `/api/kb/${editing.id}` : '/api/kb'
-    const method = editing ? 'PUT' : 'POST'
-    const res = await fetch(url,{ method, body: JSON.stringify(form) })
-    if(res.ok){ setOpen(false); setEditing(null); setForm({ signal:'', best_practice:'', profile_name:'' }); load() }
-    else alert(t(lang,'common.error'))
+    if (saving) return
+    setSaving(true)
+    const method = editing?.id ? 'PUT' : 'POST'
+    const url = editing?.id ? `/api/kb/${editing.id}` : '/api/kb'
+    const r = await fetch(url, { method, body: JSON.stringify(form) })
+    setSaving(false)
+    if (!r.ok) return alert(t(lang,'common.error'))
+    setOpen(false); setEditing(null)
+    const rr = await fetch('/api/kb')
+    setItems(await rr.json())
   }
-  async function del(id:string){
-    const res = await fetch(`/api/kb/${id}`,{ method:'DELETE' })
-    if(res.ok){ load() } else alert(t(lang,'common.error'))
+
+  async function del(id: string){
+    const r = await fetch(`/api/kb/${id}`, { method: 'DELETE' })
+    if (r.ok) setItems(items.filter(i=>i.id!==id))
+    else alert(t(lang,'common.error'))
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
+    <div className="min-h-screen">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold">{t(lang,'kb.title')}</h1>
-        <button className="bg-[var(--brand)] text-white rounded-md px-4 py-2"
-          onClick={()=>{ setEditing(null); setForm({ signal:'', best_practice:'', profile_name:'' }); setOpen(true) }}>
+        <button className="bg-[var(--brand)] text-white rounded px-4 py-2" onClick={openNew}>
           {t(lang,'kb.new')}
         </button>
       </div>
 
-      <div className="border rounded overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50"><tr>
-            <th className="p-3 text-left">{t(lang,'kb.table.signal')}</th>
-            <th className="p-3 text-left">{t(lang,'kb.table.best')}</th>
-            <th className="p-3 text-left">{t(lang,'kb.table.profile')}</th>
-            <th className="p-3"></th>
-          </tr></thead>
-          <tbody>
-            {rows.length===0 && <tr><td className="p-6 text-slate-500" colSpan={4}>{t(lang,'common.loading')}</td></tr>}
-            {rows.map(r=>(
-              <tr key={r.id} className="border-t">
-                <td className="p-3">{r.signal}</td>
-                <td className="p-3">{r.best_practice}</td>
-                <td className="p-3">{r.profile_name}</td>
-                <td className="p-3 text-right">
-                  <button className="mr-2 underline" onClick={()=>{ setEditing(r); setForm(r); setOpen(true) }}>
-                    {t(lang,'common.edit')}
-                  </button>
-                  <ConfirmDialog onConfirm={()=>del(r.id)}>
-                    <button className="text-red-600 underline">{t(lang,'common.delete')}</button>
-                  </ConfirmDialog>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {items.length===0 && <div className="text-slate-500">{t(lang,'kb.list.empty')}</div>}
+
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {items.map(k => (
+          <div key={k.id} className="rounded-xl border p-4 bg-white shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-semibold">{k.title || '—'}</div>
+              <div className="flex items-center gap-3">
+                <button className="underline" onClick={()=>openEdit(k)}>{t(lang,'kb.edit')}</button>
+                <ConfirmDialog onConfirm={()=>del(k.id!)}>
+                  <button className="text-red-600 underline">{t(lang,'common.delete')}</button>
+                </ConfirmDialog>
+              </div>
+            </div>
+            <div className="text-sm text-slate-700 space-y-1">
+              {k.signal && <div><b>{t(lang,'kb.form.signal')}:</b> {k.signal}</div>}
+              {k.best_practice && <div><b>{t(lang,'kb.form.best')}:</b> {k.best_practice}</div>}
+              {k.tags && <div><b>{t(lang,'kb.form.tags')}:</b> {k.tags}</div>}
+            </div>
+          </div>
+        ))}
       </div>
 
       {open && (
-        <Modal title={editing? t(lang,'kb.modal.edit') : t(lang,'kb.modal.new')}
-               onClose={()=>setOpen(false)} onSubmit={save}>
+        <Modal
+          title={editing ? t(lang,'kb.edit') : t(lang,'kb.new')}
+          onClose={() => setOpen(false)}
+          onSubmit={save}
+          primaryLabel={saving ? t(lang,'common.loading') : t(lang,'common.save')}
+          cancelLabel={t(lang,'common.cancel')}
+        >
           <div className="grid gap-3">
-            <label className="text-sm">{t(lang,'kb.field.signal')}
-              <input className="border rounded p-2 w-full" value={form.signal}
-                     placeholder={t(lang,'kb.ph.signal')}
-                     onChange={e=>setForm({...form, signal:e.target.value})}/>
+            <label className="text-sm">{t(lang,'kb.form.title')}
+              <input
+                className="border rounded p-2 w-full"
+                value={form.title}
+                placeholder={t(lang,'kb.ph.title')}
+                onChange={e=>setForm({...form, title:e.target.value})}
+              />
             </label>
-            <label className="text-sm">{t(lang,'kb.field.best')}
-              <textarea className="border rounded p-2 w-full" rows={3} value={form.best_practice}
-                        placeholder={t(lang,'kb.ph.best')}
-                        onChange={e=>setForm({...form, best_practice:e.target.value})}/>
+
+            <label className="text-sm">{t(lang,'kb.form.signal')}
+              <input
+                className="border rounded p-2 w-full"
+                value={form.signal}
+                placeholder={t(lang,'kb.ph.signal')}
+                onChange={e=>setForm({...form, signal:e.target.value})}
+              />
             </label>
-            <label className="text-sm">{t(lang,'kb.field.profile')}
-              <input className="border rounded p-2 w-full" value={form.profile_name}
-                     placeholder={t(lang,'kb.ph.profile')}
-                     onChange={e=>setForm({...form, profile_name:e.target.value})}/>
+
+            <label className="text-sm">{t(lang,'kb.form.best')}
+              <textarea
+                className="border rounded p-2 w-full min-h-[100px]"
+                value={form.best_practice}
+                placeholder={t(lang,'kb.ph.best')}
+                onChange={e=>setForm({...form, best_practice:e.target.value})}
+              />
+            </label>
+
+            <label className="text-sm">{t(lang,'kb.form.tags')}
+              <input
+                className="border rounded p-2 w-full"
+                value={form.tags}
+                placeholder={t(lang,'kb.ph.tags')}
+                onChange={e=>setForm({...form, tags:e.target.value})}
+              />
             </label>
           </div>
         </Modal>

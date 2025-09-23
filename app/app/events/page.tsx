@@ -1,63 +1,179 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { t, type Lang, getLang } from '@/lib/i18n'
+import Modal from '@/components/Modal'
+import ConfirmDialog from '@/components/ConfirmDialog'
+import { getLang, t, type Lang } from '@/lib/i18n'
+
+type EventItem = {
+  id?: string
+  ts?: string        // ISO date-time
+  title?: string
+  type?: string
+  notes?: string
+  tags?: string
+}
 
 export default function EventsPage(){
-  const [lang,setLang]=useState<Lang>('sv')
-  const [rows,setRows]=useState<any[]>([])
+  const [lang, setLang] = useState<Lang>('sv')
+  const [rows, setRows] = useState<EventItem[]>([])
+  const [open, setOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [editing, setEditing] = useState<EventItem | null>(null)
+  const [form, setForm] = useState<EventItem>({
+    ts: new Date().toISOString().slice(0,16),
+    title: '',
+    type: '',
+    notes: '',
+    tags: ''
+  })
 
+  useEffect(()=>{ setLang(getLang()) },[])
   useEffect(()=>{
-    setLang(getLang())
-    load()
+    ;(async()=>{
+      const r = await fetch('/api/events')
+      const data = await r.json()
+      setRows(data)
+    })()
   },[])
+  useEffect(()=>{ document.body.style.overflow = open ? 'hidden' : '' },[open])
 
-  async function load(){ setRows(await (await fetch('/api/events')).json()) }
+  function openNew(){
+    setEditing(null)
+    setForm({
+      ts: new Date().toISOString().slice(0,16),
+      title: '',
+      type: '',
+      notes: '',
+      tags: ''
+    })
+    setOpen(true)
+  }
+  function openEdit(e: EventItem){
+    setEditing(e)
+    setForm({
+      id: e.id,
+      ts: (e.ts||'').slice(0,16),
+      title: e.title||'',
+      type: e.type||'',
+      notes: e.notes||'',
+      tags: e.tags||'',
+    })
+    setOpen(true)
+  }
 
-  async function update(ev:any, patch:any){
-    await fetch(`/api/events/${ev.id}`, { method:'PUT', body: JSON.stringify(patch) })
-    load()
+  async function save(){
+    if (saving) return
+    setSaving(true)
+    const method = editing?.id ? 'PUT' : 'POST'
+    const url = editing?.id ? `/api/events/${editing.id}` : '/api/events'
+    const r = await fetch(url, { method, body: JSON.stringify(form) })
+    setSaving(false)
+    if (!r.ok) return alert(t(lang,'common.error'))
+    setOpen(false); setEditing(null)
+    const rr = await fetch('/api/events')
+    setRows(await rr.json())
+  }
+  async function del(id: string){
+    const r = await fetch(`/api/events/${id}`, { method: 'DELETE' })
+    if (r.ok) setRows(rows.filter(x=>x.id!==id))
+    else alert(t(lang,'common.error'))
   }
 
   return (
-    <div>
-      <h1 className="text-xl font-semibold mb-3">{t(lang,'events.title')}</h1>
-      <div className="border rounded overflow-hidden">
+    <div className="min-h-screen">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-semibold">{t(lang,'events.title')}</h1>
+        <button className="bg-[var(--brand)] text-white rounded px-4 py-2" onClick={openNew}>
+          {t(lang,'events.new')}
+        </button>
+      </div>
+
+      {rows.length===0 && <div className="text-slate-500">{t(lang,'events.list.empty')}</div>}
+
+      <div className="border rounded overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50"><tr>
-            <th className="p-2">{t(lang,'events.table.when')}</th>
-            <th className="p-2">{t(lang,'events.table.profile')}</th>
-            <th className="p-2">{t(lang,'events.table.question')}</th>
-            <th className="p-2">{t(lang,'events.table.rating')}</th>
-            <th className="p-2">{t(lang,'events.table.used')}</th>
-            <th className="p-2">{t(lang,'events.table.tags')}</th>
-          </tr></thead>
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="p-2">{t(lang,'events.table.date')}</th>
+              <th className="p-2">{t(lang,'events.table.title')}</th>
+              <th className="p-2">{t(lang,'events.table.type')}</th>
+              <th className="p-2">{t(lang,'events.table.notes')}</th>
+              <th className="p-2">{t(lang,'events.table.tags')}</th>
+              <th className="p-2"></th>
+            </tr>
+          </thead>
           <tbody>
-            {rows.length===0 && <tr><td colSpan={6} className="p-4 text-slate-500">{t(lang,'common.loading')}</td></tr>}
-            {rows.map((r:any)=>(
-              <tr key={r.id} className="border-t align-top">
-                <td className="p-2 whitespace-nowrap">{new Date(r.ts).toLocaleString()}</td>
-                <td className="p-2">{r.profile_name}</td>
-                <td className="p-2 max-w-[320px]">{r.question}</td>
-                <td className="p-2">
-                  <input type="number" min={1} max={5} className="w-20 border rounded p-1" defaultValue={r.rating||0}
-                    onBlur={(e)=>update(r, { rating:Number(e.target.value) })}/>
-                </td>
-                <td className="p-2">
-                  <select className="border rounded p-1" defaultValue={r.used?'yes':'no'}
-                          onChange={e=>update(r,{ used: e.target.value==='yes' })}>
-                    <option value="no">{t(lang,'qa.fb.no')}</option>
-                    <option value="yes">{t(lang,'qa.fb.yes')}</option>
-                  </select>
-                </td>
-                <td className="p-2">
-                  <input className="border rounded p-1 w-40" defaultValue={r.tags||''}
-                         onBlur={e=>update(r,{ tags:e.target.value })}/>
+            {rows.map(e=>(
+              <tr key={e.id} className="border-t">
+                <td className="p-2 whitespace-nowrap">{e.ts ? new Date(e.ts).toLocaleString() : '—'}</td>
+                <td className="p-2">{e.title||'—'}</td>
+                <td className="p-2">{e.type||'—'}</td>
+                <td className="p-2">{e.notes||'—'}</td>
+                <td className="p-2">{e.tags||'—'}</td>
+                <td className="p-2 text-right whitespace-nowrap">
+                  <button className="mr-2 underline" onClick={()=>openEdit(e)}>{t(lang,'common.edit')}</button>
+                  <ConfirmDialog onConfirm={()=>del(e.id!)}>
+                    <button className="text-red-600 underline">{t(lang,'common.delete')}</button>
+                  </ConfirmDialog>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {open && (
+        <Modal
+          title={editing ? t(lang,'events.edit') : t(lang,'events.new')}
+          onClose={()=>setOpen(false)}
+          onSubmit={save}
+          primaryLabel={saving ? t(lang,'common.loading') : t(lang,'common.save')}
+          cancelLabel={t(lang,'common.cancel')}
+        >
+          <div className="grid gap-3">
+            <label className="text-sm">{t(lang,'events.form.date')}
+              <input
+                type="datetime-local"
+                className="border rounded p-2 w-full"
+                value={form.ts}
+                onChange={e=>setForm({...form, ts:e.target.value})}
+              />
+            </label>
+            <label className="text-sm">{t(lang,'events.form.title')}
+              <input
+                className="border rounded p-2 w-full"
+                value={form.title}
+                placeholder={t(lang,'events.ph.title')}
+                onChange={e=>setForm({...form, title:e.target.value})}
+              />
+            </label>
+            <label className="text-sm">{t(lang,'events.form.type')}
+              <input
+                className="border rounded p-2 w-full"
+                value={form.type}
+                placeholder={t(lang,'events.ph.type')}
+                onChange={e=>setForm({...form, type:e.target.value})}
+              />
+            </label>
+            <label className="text-sm">{t(lang,'events.form.notes')}
+              <textarea
+                className="border rounded p-2 w-full min-h-[90px]"
+                value={form.notes}
+                placeholder={t(lang,'events.ph.notes')}
+                onChange={e=>setForm({...form, notes:e.target.value})}
+              />
+            </label>
+            <label className="text-sm">{t(lang,'events.form.tags')}
+              <input
+                className="border rounded p-2 w-full"
+                value={form.tags}
+                placeholder={t(lang,'events.ph.tags')}
+                onChange={e=>setForm({...form, tags:e.target.value})}
+              />
+            </label>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
