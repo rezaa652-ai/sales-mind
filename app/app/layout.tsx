@@ -1,37 +1,37 @@
-// app/app/layout.tsx
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { getLangFromCookie, type Lang, t } from '@/lib/i18n'
+import { getLang, type Lang, t } from '@/lib/i18n'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [lang, setLang] = useState<Lang>('sv')
 
+  // Initialize lang from cookie on mount and when route changes
   useEffect(() => {
-    setLang(getLangFromCookie())
-  }, [])
+    setLang(getLang())
+  }, [pathname])
 
   const links = [
-    { href: '/app/qa', label: t(lang, 'nav.qa') },
+    { href: '/app/qa',       label: t(lang, 'nav.qa') },
     { href: '/app/profiles', label: t(lang, 'nav.profiles') },
-    { href: '/app/company', label: t(lang, 'nav.company') },
-    { href: '/app/kb', label: t(lang, 'nav.kb') },
-    { href: '/app/events', label: t(lang, 'nav.events') },
+    { href: '/app/company',  label: t(lang, 'nav.company') },
+    { href: '/app/kb',       label: t(lang, 'nav.kb') },
+    { href: '/app/events',   label: t(lang, 'nav.events') },
     { href: '/app/settings', label: t(lang, 'nav.settings') },
   ]
 
   return (
     <div className="flex min-h-screen">
       <aside className="w-56 border-r bg-gray-50 p-4">
-        <h2 className="font-bold mb-4">SalesMind</h2>
+        <h2 className="font-bold mb-4">{t(lang, 'app.title')}</h2>
         <nav className="flex flex-col gap-2">
           {links.map(l => (
             <Link
               key={l.href}
               href={l.href}
-              className={`p-2 rounded ${pathname===l.href ? 'bg-blue-100 text-blue-600 font-medium' : 'hover:bg-gray-100'}`}
+              className={`p-2 rounded ${pathname === l.href ? 'bg-blue-100 text-blue-600 font-medium' : 'hover:bg-gray-100'}`}
             >
               {l.label}
             </Link>

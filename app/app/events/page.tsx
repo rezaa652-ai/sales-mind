@@ -1,67 +1,63 @@
 'use client'
-import React, { useEffect, useState } from 'react'
-import Card from '@/components/ui/Card'
-import Input from '@/components/ui/Input'
-import Select from '@/components/ui/Select'
-import Skeleton from '@/components/ui/Skeleton'
+import { useEffect, useState } from 'react'
+import { t, type Lang, getLang } from '@/lib/i18n'
 
-type Row = {
-  id: string; ts: string; profile_name: string; question: string; rating?: number; used?: boolean; tags?: string
-}
+export default function EventsPage(){
+  const [lang,setLang]=useState<Lang>('sv')
+  const [rows,setRows]=useState<any[]>([])
 
-export default function EventsPage() {
-  const [rows, setRows] = useState<Row[] | null>(null)
+  useEffect(()=>{
+    setLang(getLang())
+    load()
+  },[])
 
-  async function load() {
-    const r = await fetch('/api/events')
-    setRows(r.ok ? await r.json() : [])
-  }
-  useEffect(() => { load() }, [])
+  async function load(){ setRows(await (await fetch('/api/events')).json()) }
 
-  async function update(ev: Row, patch: Partial<Row>) {
-    await fetch(`/api/events/${ev.id}`, { method: 'PUT', body: JSON.stringify(patch) })
+  async function update(ev:any, patch:any){
+    await fetch(`/api/events/${ev.id}`, { method:'PUT', body: JSON.stringify(patch) })
     load()
   }
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="text-xl font-semibold">Events</h1>
+      <h1 className="text-xl font-semibold mb-3">{t(lang,'events.title')}</h1>
+      <div className="border rounded overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50"><tr>
+            <th className="p-2">{t(lang,'events.table.when')}</th>
+            <th className="p-2">{t(lang,'events.table.profile')}</th>
+            <th className="p-2">{t(lang,'events.table.question')}</th>
+            <th className="p-2">{t(lang,'events.table.rating')}</th>
+            <th className="p-2">{t(lang,'events.table.used')}</th>
+            <th className="p-2">{t(lang,'events.table.tags')}</th>
+          </tr></thead>
+          <tbody>
+            {rows.length===0 && <tr><td colSpan={6} className="p-4 text-slate-500">{t(lang,'common.loading')}</td></tr>}
+            {rows.map((r:any)=>(
+              <tr key={r.id} className="border-t align-top">
+                <td className="p-2 whitespace-nowrap">{new Date(r.ts).toLocaleString()}</td>
+                <td className="p-2">{r.profile_name}</td>
+                <td className="p-2 max-w-[320px]">{r.question}</td>
+                <td className="p-2">
+                  <input type="number" min={1} max={5} className="w-20 border rounded p-1" defaultValue={r.rating||0}
+                    onBlur={(e)=>update(r, { rating:Number(e.target.value) })}/>
+                </td>
+                <td className="p-2">
+                  <select className="border rounded p-1" defaultValue={r.used?'yes':'no'}
+                          onChange={e=>update(r,{ used: e.target.value==='yes' })}>
+                    <option value="no">{t(lang,'qa.fb.no')}</option>
+                    <option value="yes">{t(lang,'qa.fb.yes')}</option>
+                  </select>
+                </td>
+                <td className="p-2">
+                  <input className="border rounded p-1 w-40" defaultValue={r.tags||''}
+                         onBlur={e=>update(r,{ tags:e.target.value })}/>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead><tr><th className="p-2 text-left">När</th><th className="p-2 text-left">Profil</th><th className="p-2 text-left">Fråga</th><th className="p-2 text-left">Rating</th><th className="p-2 text-left">Användes</th><th className="p-2 text-left">Taggar</th></tr></thead>
-            <tbody>
-              {rows === null && (
-                <>
-                  <tr><td className="p-2"><Skeleton className="h-5 w-40" /></td><td className="p-2"><Skeleton className="h-5 w-28" /></td><td className="p-2"><Skeleton className="h-5 w-80" /></td><td className="p-2"><Skeleton className="h-8 w-16" /></td><td className="p-2"><Skeleton className="h-8 w-24" /></td><td className="p-2"><Skeleton className="h-8 w-24" /></td></tr>
-                </>
-              )}
-              {(rows || []).length === 0 && <tr><td colSpan={6} className="p-4 text-slate-500">Inga events ännu.</td></tr>}
-              {(rows || []).map(r => (
-                <tr key={r.id} className="align-top">
-                  <td className="p-2 whitespace-nowrap">{new Date(r.ts).toLocaleString()}</td>
-                  <td className="p-2">{r.profile_name}</td>
-                  <td className="p-2 max-w-[420px]">{r.question}</td>
-                  <td className="p-2">
-                    <Input type="number" min={1} max={5} value={r.rating || 0} onChange={e => update(r, { rating: Number(e.target.value) })} />
-                  </td>
-                  <td className="p-2">
-                    <Select value={r.used ? 'yes' : 'no'} onChange={e => update(r, { used: e.target.value === 'yes' })}>
-                      <option value="no">Nej</option><option value="yes">Ja</option>
-                    </Select>
-                  </td>
-                  <td className="p-2">
-                    <Input value={r.tags || ''} onChange={e => update(r, { tags: e.target.value })} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
     </div>
   )
 }

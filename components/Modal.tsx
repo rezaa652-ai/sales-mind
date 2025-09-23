@@ -1,37 +1,29 @@
 'use client'
-import React, { ReactNode, useEffect } from 'react'
-import Button from './ui/Button'
+import { ReactNode } from 'react'
 
 export default function Modal({
   title,
   children,
   onClose,
   onSubmit,
-  submitLabel = 'Spara'
-}: {
-  title: string
-  children: ReactNode
-  onClose: () => void
-  onSubmit: () => void
+  cancelLabel = 'Cancel',
+  submitLabel = 'Save',
+}:{
+  title:string
+  children:ReactNode
+  onClose:()=>void
+  onSubmit:()=>void
+  cancelLabel?: string
   submitLabel?: string
-}) {
-  useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onEsc)
-    return () => window.removeEventListener('keydown', onEsc)
-  }, [onClose])
-
+}){
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-lg" style={{ animation: 'sm-fade-in .18s ease-out both' }}>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <button onClick={onClose} aria-label="Stäng" className="rounded p-1 hover:bg-gray-100">✕</button>
-        </div>
+    <div className="fixed inset-0 bg-black/40 grid place-items-center z-50">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+        <h2 className="text-lg font-semibold mb-4">{title}</h2>
         <div className="mb-4">{children}</div>
         <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>Avbryt</Button>
-          <Button onClick={onSubmit}>{submitLabel}</Button>
+          <button onClick={onClose} className="px-4 py-2 rounded bg-slate-200">{cancelLabel}</button>
+          <button onClick={onSubmit} className="px-4 py-2 rounded bg-[var(--brand)] text-white">{submitLabel}</button>
         </div>
       </div>
     </div>
