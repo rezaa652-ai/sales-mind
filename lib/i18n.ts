@@ -21,9 +21,8 @@ const dict: Record<Lang, Record<string, string>> = {
     'common.loading': 'Laddar …',
     'common.error': 'Något gick fel',
     'common.ok': 'OK',
-    'common.edit': 'Redigera',
 
-    // QA
+    // QA — titles & labels
     'qa.title': 'Q&A',
     'qa.company': 'Företag',
     'qa.profile': 'Profil',
@@ -34,6 +33,8 @@ const dict: Record<Lang, Record<string, string>> = {
     'qa.question': 'Fråga / Signal',
     'qa.getAnswer': 'Hämta svar',
     'qa.hint.enter': 'Enter: skicka • Shift+Enter: ny rad',
+
+    // QA — placeholders
     'qa.ph.company': 'Välj företag (valfritt)',
     'qa.ph.profile': 'Välj säljprofil',
     'qa.ph.goal': 'T.ex. ”Boka demo” eller ”Kvalificera”',
@@ -41,6 +42,8 @@ const dict: Record<Lang, Record<string, string>> = {
     'qa.ph.channel': 'T.ex. ”E-post”, ”Telefon”, ”LinkedIn”',
     'qa.ph.numbers': 'T.ex. ”3 möten/vecka”, ”CTR 2,1%”',
     'qa.ph.question': 'Skriv din fråga / signal … (Enter skickar, Shift+Enter ny rad)',
+
+    // QA — result blocks
     'qa.res.one_liner': 'One-liner',
     'qa.res.why': 'Varför',
     'qa.res.ack': 'Bekräfta',
@@ -48,6 +51,8 @@ const dict: Record<Lang, Record<string, string>> = {
     'qa.res.full_script': 'Fullt manus',
     'qa.res.math': 'Uträkning',
     'qa.res.next_step': 'Nästa steg',
+
+    // QA — feedback
     'qa.fb.title': 'Feedback',
     'qa.fb.rating': 'Betyg (1–5)',
     'qa.fb.used': 'Användes?',
@@ -56,103 +61,12 @@ const dict: Record<Lang, Record<string, string>> = {
     'qa.fb.yes': 'Ja',
     'qa.fb.no': 'Nej',
 
-    // Profiles
-    'profiles.name': 'Namn',
-    'profiles.language': 'Språk',
-    'profiles.tone': 'Ton',
-    'profiles.company': 'Företag',
-    'profiles.targets': 'Säljmål',
-    'profiles.preview': 'Förhandsvisning',
-    'profiles.new': 'Ny profil',
-    'profiles.edit': 'Redigera profil',
-    'profiles.form.name': 'Namn',
-    'profiles.form.language': 'Språk',
-    'profiles.form.tone': 'Ton',
-    'profiles.form.company': 'Företag',
-    'profiles.form.callback': 'Återkopplingsfönster',
-    'profiles.form.goals': 'Mål',
-    'profiles.form.sales_targets': 'Säljmål',
-    'profiles.form.persona_hints': 'Persona-hintar',
-    'profiles.form.compliance': 'Efterlevnad',
-    'profiles.form.proof': 'Underlag',
-    'profiles.ph.name': 'Ange namn',
-    'profiles.ph.language': 'T.ex. Svenska',
-    'profiles.ph.tone': 'T.ex. Konkret',
-    'profiles.ph.company': 'Välj företag',
-    'profiles.ph.callback': 'T.ex. 12:15,16:40',
-    'profiles.ph.goals': 'T.ex. ”Boka demo”, ”Kvalificera”',
-    'profiles.ph.sales_targets': 'T.ex. ”3 möten/dag”',
-    'profiles.ph.persona_hints': 'Kort om målpersonans stil, roll, driv …',
-    'profiles.ph.compliance': 'Policy/efterlevnad att följa …',
-    'profiles.ph.proof': 'Underlag/bevispunkter …',
-
-    // Company
-    'company.title': 'Företag',
-    'company.list.empty': 'Inga företag än',
-    'company.card.geo': 'Geografiska områden',
-    'company.card.unique': 'Unika egenskaper',
-    'company.card.disclaimer': 'Ansvarsfriskrivning',
-    'company.form.name': 'Företagsnamn',
-    'company.form.geo': 'Geografiska områden',
-    'company.form.unique': 'Unika egenskaper',
-    'company.form.compliance': 'Efterlevnad',
-    'company.form.proof': 'Underlag',
-    'company.form.disclaimer': 'Ansvarsfriskrivning',
-    'company.ph.name': 'Ange företagsnamn',
-    'company.ph.geo': 'T.ex. ”SE, NO, DK” eller regioner',
-    'company.ph.unique': 'Vad särskiljer er? (kort)',
-    'company.ph.compliance': 'Policy/efterlevnad att följa …',
-    'company.ph.proof': 'Underlag/bevispunkter …',
-    'company.ph.disclaimer': 'Juridisk text/ansvarsfriskrivning …',
-    'company.new': 'Nytt företag',
-    'company.edit': 'Redigera företag',
-
-    // KB
-    'kb.title': 'Kunskapsbank',
-    'kb.list.empty': 'Inga poster än',
-    'kb.form.title': 'Titel',
-    'kb.form.signal': 'Signal',
-    'kb.form.best': 'Best practice',
-    'kb.form.tags': 'Taggar',
-    'kb.ph.title': 'Ange titel',
-    'kb.ph.signal': 'Kort signal/trigger …',
-    'kb.ph.best': 'Kort best practice …',
-    'kb.ph.tags': 'kommaseparerade taggar',
-    'kb.new': 'Ny post',
-    'kb.edit': 'Redigera post',
-
-    // Events
-    'events.title': 'Händelser',
-    'events.list.empty': 'Inga händelser än',
-    'events.table.date': 'Datum',
-    'events.table.title': 'Titel',
-    'events.table.type': 'Typ',
-    'events.table.notes': 'Anteckningar',
-    'events.table.tags': 'Taggar',
-    'events.new': 'Ny händelse',
-    'events.edit': 'Redigera händelse',
-    'events.form.date': 'Datum & tid',
-    'events.form.title': 'Titel',
-    'events.form.type': 'Typ',
-    'events.form.notes': 'Anteckningar',
-    'events.form.tags': 'Taggar',
-    'events.ph.title': 'Ange titel',
-    'events.ph.type': 'T.ex. Möte, Demo, Uppföljning',
-    'events.ph.notes': 'Kort anteckning …',
-    'events.ph.tags': 'kommaseparerade taggar',
-
-    // Settings
-    'settings.title': 'Inställningar',
-    'settings.menu.profile': 'Profil',
-    'settings.menu.billing': 'Fakturering',
-    'settings.menu.language': 'Språk',
-    'settings.profile.email': 'E-post',
-    'settings.profile.password': 'Lösenord',
-    'settings.profile.change': 'Byt lösenord',
-    'settings.billing.plan': 'Abonnemang',
-    'settings.billing.upgrade': 'Uppgradera',
-    'settings.language.choose': 'Välj språk',
-    'settings.logout': 'Logga ut',
+    // QA — location context (NYTT)
+    'qa.loc.title': 'Platskontext',
+    'qa.loc.segment': 'Segment',
+    'qa.loc.nearby': 'I närheten',
+    'qa.loc.hooks': 'Krokar',
+    'qa.loc.plan': 'Plan',
   },
 
   en: {
@@ -174,9 +88,8 @@ const dict: Record<Lang, Record<string, string>> = {
     'common.loading': 'Loading …',
     'common.error': 'Something went wrong',
     'common.ok': 'OK',
-    'common.edit': 'Edit',
 
-    // QA
+    // QA — titles & labels
     'qa.title': 'Q&A',
     'qa.company': 'Company',
     'qa.profile': 'Profile',
@@ -187,6 +100,8 @@ const dict: Record<Lang, Record<string, string>> = {
     'qa.question': 'Question / Signal',
     'qa.getAnswer': 'Get answer',
     'qa.hint.enter': 'Enter: submit • Shift+Enter: new line',
+
+    // QA — placeholders
     'qa.ph.company': 'Choose company (optional)',
     'qa.ph.profile': 'Choose sales profile',
     'qa.ph.goal': 'e.g. “Book demo” or “Qualify”',
@@ -194,6 +109,8 @@ const dict: Record<Lang, Record<string, string>> = {
     'qa.ph.channel': 'e.g. “Email”, “Phone”, “LinkedIn”',
     'qa.ph.numbers': 'e.g. “3 meetings/week”, “CTR 2.1%”',
     'qa.ph.question': 'Type your question / signal… (Enter submits, Shift+Enter new line)',
+
+    // QA — result blocks
     'qa.res.one_liner': 'One-liner',
     'qa.res.why': 'Why',
     'qa.res.ack': 'Acknowledge',
@@ -201,6 +118,8 @@ const dict: Record<Lang, Record<string, string>> = {
     'qa.res.full_script': 'Full script',
     'qa.res.math': 'Math',
     'qa.res.next_step': 'Next step',
+
+    // QA — feedback
     'qa.fb.title': 'Feedback',
     'qa.fb.rating': 'Rating (1–5)',
     'qa.fb.used': 'Used?',
@@ -209,103 +128,12 @@ const dict: Record<Lang, Record<string, string>> = {
     'qa.fb.yes': 'Yes',
     'qa.fb.no': 'No',
 
-    // Profiles
-    'profiles.name': 'Name',
-    'profiles.language': 'Language',
-    'profiles.tone': 'Tone',
-    'profiles.company': 'Company',
-    'profiles.targets': 'Sales targets',
-    'profiles.preview': 'Preview',
-    'profiles.new': 'New profile',
-    'profiles.edit': 'Edit profile',
-    'profiles.form.name': 'Name',
-    'profiles.form.language': 'Language',
-    'profiles.form.tone': 'Tone',
-    'profiles.form.company': 'Company',
-    'profiles.form.callback': 'Callback windows',
-    'profiles.form.goals': 'Goals',
-    'profiles.form.sales_targets': 'Sales targets',
-    'profiles.form.persona_hints': 'Persona hints',
-    'profiles.form.compliance': 'Compliance',
-    'profiles.form.proof': 'Proof',
-    'profiles.ph.name': 'Enter name',
-    'profiles.ph.language': 'e.g. English',
-    'profiles.ph.tone': 'e.g. Concise',
-    'profiles.ph.company': 'Choose company',
-    'profiles.ph.callback': 'e.g. 12:15,16:40',
-    'profiles.ph.goals': 'e.g. “Book demo”, “Qualify”',
-    'profiles.ph.sales_targets': 'e.g. “3 meetings/day”',
-    'profiles.ph.persona_hints': 'Short notes about persona…',
-    'profiles.ph.compliance': 'Policies/compliance to follow…',
-    'profiles.ph.proof': 'Proof points / references…',
-
-    // Company
-    'company.title': 'Company',
-    'company.list.empty': 'No companies yet',
-    'company.card.geo': 'Geographic areas',
-    'company.card.unique': 'Unique features',
-    'company.card.disclaimer': 'Disclaimer',
-    'company.form.name': 'Company name',
-    'company.form.geo': 'Geographic areas',
-    'company.form.unique': 'Unique features',
-    'company.form.compliance': 'Compliance',
-    'company.form.proof': 'Proof',
-    'company.form.disclaimer': 'Disclaimer',
-    'company.ph.name': 'Enter company name',
-    'company.ph.geo': 'e.g. “SE, NO, DK” or regions',
-    'company.ph.unique': 'What makes you unique? (short)',
-    'company.ph.compliance': 'Policies/compliance to follow…',
-    'company.ph.proof': 'Proof points / references…',
-    'company.ph.disclaimer': 'Legal text / disclaimer …',
-    'company.new': 'New company',
-    'company.edit': 'Edit company',
-
-    // KB
-    'kb.title': 'Knowledge Base',
-    'kb.list.empty': 'No entries yet',
-    'kb.form.title': 'Title',
-    'kb.form.signal': 'Signal',
-    'kb.form.best': 'Best practice',
-    'kb.form.tags': 'Tags',
-    'kb.ph.title': 'Enter title',
-    'kb.ph.signal': 'Short signal/trigger…',
-    'kb.ph.best': 'Short best practice…',
-    'kb.ph.tags': 'comma separated tags',
-    'kb.new': 'New entry',
-    'kb.edit': 'Edit entry',
-
-    // Events
-    'events.title': 'Events',
-    'events.list.empty': 'No events yet',
-    'events.table.date': 'Date',
-    'events.table.title': 'Title',
-    'events.table.type': 'Type',
-    'events.table.notes': 'Notes',
-    'events.table.tags': 'Tags',
-    'events.new': 'New event',
-    'events.edit': 'Edit event',
-    'events.form.date': 'Date & time',
-    'events.form.title': 'Title',
-    'events.form.type': 'Type',
-    'events.form.notes': 'Notes',
-    'events.form.tags': 'Tags',
-    'events.ph.title': 'Enter title',
-    'events.ph.type': 'e.g. Meeting, Demo, Follow-up',
-    'events.ph.notes': 'Short note…',
-    'events.ph.tags': 'comma separated tags',
-
-    // Settings
-    'settings.title': 'Settings',
-    'settings.menu.profile': 'Profile',
-    'settings.menu.billing': 'Billing',
-    'settings.menu.language': 'Language',
-    'settings.profile.email': 'Email',
-    'settings.profile.password': 'Password',
-    'settings.profile.change': 'Change password',
-    'settings.billing.plan': 'Subscription',
-    'settings.billing.upgrade': 'Upgrade',
-    'settings.language.choose': 'Choose language',
-    'settings.logout': 'Log out',
+    // QA — location context (NEW)
+    'qa.loc.title': 'Location context',
+    'qa.loc.segment': 'Segment',
+    'qa.loc.nearby': 'Nearby',
+    'qa.loc.hooks': 'Hooks',
+    'qa.loc.plan': 'Plan',
   },
 }
 
@@ -318,9 +146,10 @@ function readCookie(name: string, cookieStr?: string) {
   return match ? decodeURIComponent(match.split('=').slice(1).join('=')) : null
 }
 
-export function getLang(cookieStr?: string) {
+export function getLang(cookieStr?: string): Lang {
   const v = readCookie('salesmind_lang', cookieStr)
-  return v === 'en' || v === 'sv' ? v : 'sv'
+  if (v === 'en' || v === 'sv') return v
+  return 'sv'
 }
 
 export function setLangCookie(lang: Lang) {

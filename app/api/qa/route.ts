@@ -1,128 +1,114 @@
-// app/api/qa/route.ts
-import { NextResponse, NextRequest } from 'next/server'
-import { supabaseFromRequest } from '@/lib/supabaseRoute'
-import OpenAI from 'openai'
+import { NextRequest, NextResponse } from 'next/server'
 
-function systemPrompt(profile:any, company:any){
-  return [
-    `Du är en professionell säljcoach. Svara på ${profile?.language||'Svenska'}.`,
-    `Ton: ${profile?.tone||'Konkret, respektfull, kort'}.`,
-    company?.compliance ? `Compliance: ${company.compliance}` : '',
-    profile?.proof ? `Proof: ${profile.proof}` : (company?.proof_points ? `Proof: ${company?.proof_points}`:''),
-    profile?.callback_windows ? `Callback windows: ${profile.callback_windows}` : '',
-    profile?.sales_targets ? `Säljtarget: ${profile.sales_targets}` : '',
-    `Returnera STRIKT JSON: one_liner, why, ack, short_script, full_script, math, next_step.`
-  ].filter(Boolean).join('\n')
+type ReqBody = {
+  lang?: 'sv'|'en'
+  question?: string
+  companyId?: string
+  profileId?: string
+  goal?: string
+  segment?: string
+  channel?: string
+  number?: string   // value line, e.g. “reduce your electricity bill…”
+  address?: string
 }
 
-function userPrompt(input:any, kbText:string, company:any, profile:any){
-  return [
-    `Profil: ${profile?.name||''}`,
-    `Mål: ${input.goal||''}`,
-    `Segment: ${input.segment||''}`,
-    `Kanal: ${input.channel||''}`,
-    `Siffror: ${input.numbers||''}`,
-    company ? `Företag: ${company.company_name} (${company.market})` : '',
-    kbText ? `Best practice: ${kbText}` : '',
-    `Signal: ${input.question}`
-  ].filter(Boolean).join(' | ')
+function sysPrompt(lang:'sv'|'en'){
+  const common = `
+Return STRICT JSON only, no markdown, no prose. Shape:
+{
+  "one_liner": string,
+  "why": string,
+  "acknowledge": string,
+  "short_script": string,
+  "long_script": string,
+  "next_step": string
+}
+Adapt tone to channel (Telefon/SMS/E-post or Phone/SMS/Email). Use the “number” field as the value line if provided. If address is present, localize gently (neighbourhood hints, not exact).
+`.trim()
+
+  if(lang==='en'){
+    return "You write concise, on-brand sales replies in English.\n" + common
+  }
+  return "Du skriver koncisa, varumärkesanpassade säljsvar på svenska.\n" + common
 }
 
-export async function POST(req: NextRequest){
-  const { supabase } = supabaseFromRequest(req)
-  const { data:{ user } } = await supabase.auth.getUser()
-  if(!user) return NextResponse.json({error:'unauth'},{status:401})
-
-  const input = await req.json()
-  const profileId = input.profile_id as string|undefined
-  const companyId = input.company_id as string|undefined
-
-  // FREE PLAN: 30 events per 30 dagar
-  const sinceIso = new Date(Date.now() - 30*24*60*60*1000).toISOString()
-  const { count: evCount, error: cntErr } = await supabase
-    .from('events')
-    .select('*', { count: 'exact', head: true })
-    .eq('owner', user.id)
-    .gte('ts', sinceIso)
-  if (cntErr) return NextResponse.json({ error: cntErr.message }, { status: 400 })
-  if ((evCount ?? 0) >= 30) {
-    return NextResponse.json(
-      { error: 'Free-plan gräns nådd: 30 Q&A-svar per 30 dagar.' },
-      { status: 403 }
-    )
-  }
-
-  const { data: profile } = profileId
-    ? await supabase.from('profiles_sales').select('*').eq('id', profileId).eq('owner', user.id).single()
-    : { data: null }
-
-  const { data: company } = companyId
-    ? await supabase.from('company_profiles').select('*').eq('id', companyId).eq('owner', user.id).single()
-    : { data: null }
-
-  // KB “RAG-light”
-  let kbText = ''
-  if (input.question) {
-    const q = String(input.question).slice(0, 120)
-    const { data: kb } = await supabase
-      .from('kb_entries')
-      .select('*')
-      .eq('owner', user.id)
-      .ilike('signal', `%${q}%`)
-      .order('created_at', { ascending: false })
-      .limit(1)
-    kbText = kb?.[0]?.best_practice || ''
-  }
-
-  const sys = systemPrompt(profile, company)
-  const usr = userPrompt(input, kbText, company, profile)
-
-  let obj:any
-  if (process.env.OPENAI_API_KEY) {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-    const resp = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      temperature: 0.25,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: sys },
-        { role: 'user', content: usr }
-      ]
-    })
-    const text = resp.choices?.[0]?.message?.content || '{}'
-    obj = JSON.parse(text)
-  } else {
-    obj = {
-      one_liner: "Tack — låt mig göra det enkelt.",
-      why: "Kunden vill ha tydlighet, låg friktion och relevant nästa steg.",
-      ack: "Förstår, vi håller det kort och konkret.",
-      short_script: "Två snabba alternativ: 12:15 eller 16:40 för en 5-min intro?",
-      full_script: "Värdet i en mening, sedan två tider. Bekräfta och dokumentera.",
-      math: "≈ liten tidsbesparing per ärende → större över månad.",
-      next_step: "Jag skickar en kort agenda och mötesförslag nu — funkar 12:15?"
+export async function POST(req: NextRequest) {
+  try {
+    const apiKey = process.env.OPENAI_API_KEY
+    if(!apiKey){
+      return NextResponse.json({ error: 'missing_openai_key' }, { status: 500 })
     }
+
+    const body = (await req.json().catch(()=> ({}))) as ReqBody
+    const lang = (body.lang==='en' ? 'en' : 'sv') as 'sv'|'en'
+    const userPayload = {
+      lang,
+      question: body.question || '',
+      companyId: body.companyId || '',
+      profileId: body.profileId || '',
+      goal: body.goal || '',
+      segment: body.segment || '',
+      channel: body.channel || '',
+      value_line: body.number || '',
+      address: body.address || ''
+    }
+
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        temperature: 0.6,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: sysPrompt(lang) },
+          { role: 'user', content: (lang==='en'
+            ? 'Create the sections. JSON ONLY:\n'
+            : 'Skapa sektionerna. ENBART JSON:\n') + JSON.stringify(userPayload, null, 2) }
+        ]
+      })
+    })
+
+    if(!resp.ok){
+      const text = await resp.text().catch(()=> '')
+      return NextResponse.json({ error: 'openai_http', status: resp.status, preview: text.slice(0,400) }, { status: 502 })
+    }
+
+    const data = await resp.json().catch(()=> null)
+    const content: string = data?.choices?.[0]?.message?.content || ''
+
+    let obj: any = null
+    try { obj = JSON.parse(content) } catch {
+      return NextResponse.json({ error: 'openai_parse', preview: content.slice(0,400) }, { status: 502 })
+    }
+
+    const sections = {
+      one_liner: String(obj.one_liner||'').trim(),
+      why: String(obj.why||'').trim(),
+      acknowledge: String(obj.acknowledge||'').trim(),
+      short_script: String(obj.short_script||'').trim(),
+      long_script: String(obj.long_script||'').trim(),
+      next_step: String(obj.next_step||'').trim(),
+    }
+
+    const answers = [
+      sections.one_liner,
+      sections.why,
+      sections.acknowledge,
+      sections.short_script,
+      sections.long_script,
+      sections.next_step
+    ].filter(Boolean)
+
+    return NextResponse.json({
+      meta: userPayload,
+      sections,
+      answers
+    })
+  } catch(e:any){
+    return NextResponse.json({ error: 'qa_route_error', detail: e?.message || String(e) }, { status: 500 })
   }
-
-  const { data: saved, error } = await supabase.from('events').insert([{
-    owner: user.id,
-    company: company?.id || null,
-    profile_name: profile?.name || '',
-    goal: input.goal || '',
-    segment: input.segment || '',
-    channel: input.channel || '',
-    numbers: input.numbers || '',
-    question: input.question || '',
-    kb_hit: !!kbText,
-    one_liner: obj.one_liner || '',
-    why: obj.why || '',
-    ack: obj.ack || '',
-    short_script: obj.short_script || '',
-    full_script: obj.full_script || '',
-    math: obj.math || '',
-    next_step: obj.next_step || '',
-    raw_json: obj
-  }]).select().single()
-
-  if(error) return NextResponse.json({error:error.message},{status:400})
-  return NextResponse.json(saved)
 }

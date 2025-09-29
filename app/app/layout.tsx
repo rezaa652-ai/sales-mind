@@ -8,10 +8,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [lang, setLang] = useState<Lang>('sv')
 
-  // Initialize lang from cookie on mount and when route changes
-  useEffect(() => {
-    setLang(getLang())
-  }, [pathname])
+  useEffect(() => { setLang(getLang()) }, [pathname])
 
   const links = [
     { href: '/app/qa',       label: t(lang, 'nav.qa') },
@@ -19,6 +16,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { href: '/app/company',  label: t(lang, 'nav.company') },
     { href: '/app/kb',       label: t(lang, 'nav.kb') },
     { href: '/app/events',   label: t(lang, 'nav.events') },
+    { href: '/app/geo',      label: t(lang, 'nav.geo') },
     { href: '/app/settings', label: t(lang, 'nav.settings') },
   ]
 
