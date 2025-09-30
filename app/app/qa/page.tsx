@@ -1,328 +1,492 @@
-'use client'
+"use client";
 
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState, KeyboardEvent } from "react";
 
-type Lang = 'sv'|'en'
+type Item = { id: string; name: string };
 
-type Company = { id: string, name: string }
-type Profile = { id: string, name: string }
-
-type Sections = {
-  one_liner: string
-  why: string
-  acknowledge: string
-  short_script: string
-  long_script: string
-  next_step: string
+function StarRating({
+  value,
+  onChange,
+  onEnter,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  onEnter?: () => void;
+}) {
+  return (
+    <div
+      className="flex gap-1 items-center text-xl select-none"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && onEnter) onEnter();
+        if (e.key === "ArrowRight") onChange(Math.min(5, (value || 0) + 1));
+        if (e.key === "ArrowLeft") onChange(Math.max(1, (value || 0) - 1));
+      }}
+      aria-label="Betyg 1–5"
+      role="radiogroup"
+    >
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          className="px-1"
+          onClick={() => onChange(n)}
+          aria-checked={value === n}
+          role="radio"
+          title={`${n}/5`}
+        >
+          {n <= value ? "★" : "☆"}
+        </button>
+      ))}
+    </div>
+  );
 }
 
-type QaResponse = {
-  meta: any
-  sections: Sections
-  answers: string[]
+function AnswerBlock({
+  title,
+  text,
+  onCopy,
+  liked,
+  onLike,
+  onDislike,
+}: {
+  title: string;
+  text: string;
+  onCopy: () => void;
+  liked: "like" | "dislike" | "";
+  onLike: () => void;
+  onDislike: () => void;
+}) {
+  if (!text) return null;
+  return (
+    <div className="border rounded p-3 bg-white">
+      <div className="font-medium mb-2">{title}</div>
+      <div className="whitespace-pre-wrap text-sm leading-relaxed">{text}</div>
+      <div className="flex gap-3 mt-3 text-sm">
+        <button type="button" onClick={onCopy} className="px-2 py-1 border rounded">
+          📋 Kopiera
+        </button>
+        <button
+          type="button"
+          onClick={onLike}
+          className={`px-2 py-1 border rounded ${liked === "like" ? "bg-green-50" : ""}`}
+        >
+          👍 Gilla
+        </button>
+        <button
+          type="button"
+          onClick={onDislike}
+          className={`px-2 py-1 border rounded ${liked === "dislike" ? "bg-red-50" : ""}`}
+        >
+          👎 Ogilla
+        </button>
+      </div>
+    </div>
+  );
 }
 
-const L = (lang:Lang) => ({
-  title: lang==='en' ? 'Q&A' : 'Q&A',
-  ask_label: lang==='en' ? 'Question / Signal' : 'Fråga / Signal',
-  ask_ph: lang==='en'
-    ? 'How do I handle “I don’t have time”?'
-    : 'Hur hanterar jag ”jag har inte tid”?',
-  company: lang==='en' ? 'Company' : 'Företag',
-  company_ph: lang==='en' ? 'Choose company…' : 'Välj företag…',
-  profile: lang==='en' ? 'Profile' : 'Profil',
-  profile_ph: lang==='en' ? 'Choose profile…' : 'Välj profil…',
-  goal: lang==='en' ? 'Goal (optional)' : 'Mål (valfritt)',
-  goal_opts: lang==='en'
-    ? ['Qualify','Book a call/time later','Sale']
-    : ['Kvalificera','Boka samtal/tid senare','Affär'],
-  segment: lang==='en' ? 'Segment (optional)' : 'Segment (valfritt)',
-  segment_opts: lang==='en'
-    ? ['Single household','Two-person household','Family household']
-    : ['Enpersonshushåll','Tvåpersonshushåll','Familjehushåll'],
-  channel: lang==='en' ? 'Channel (optional)' : 'Kanal (valfritt)',
-  channel_opts: lang==='en'
-    ? ['Phone','SMS','Email']
-    : ['Telefon','SMS','E-post'],
-  number: lang==='en' ? 'Value line (optional)' : 'Värderad rad (valfritt)',
-  number_ph: lang==='en'
-    ? 'Example: reduce your electricity bill up to 30% per month'
-    : 'Exempel: sänk din elräkning upp till 30 % per månad',
-  address: lang==='en' ? 'Address (optional)' : 'Adress (valfritt)',
-  address_ph: lang==='en'
-    ? 'Example: Södra Förstadsgatan 1, Malmö'
-    : 'Exempel: Södra Förstadsgatan 1, Malmö',
-  get_answer: lang==='en' ? 'Get answers' : 'Hämta svar',
-  answers: lang==='en' ? 'Answers' : 'Svar',
-  copy: lang==='en' ? 'Copy' : 'Kopiera',
-  liked: lang==='en' ? 'Liked' : 'Gillad',
-  like: lang==='en' ? 'Like' : 'Gilla',
-  unlike: lang==='en' ? 'Unlike' : 'Ogilla',
-  rating: lang==='en' ? 'Rate' : 'Betygsätt',
-  details: lang==='en' ? 'Details' : 'Detaljer'
-})
+export default function QAPage() {
+  // Language toggle
+  const [lang, setLang] = useState<"sv" | "en">("sv");
 
-export default function QA(){
-  const [lang, setLang] = useState<Lang>('sv')
+  // Select data
+  const [companies, setCompanies] = useState<Item[]>([]);
+  const [profiles, setProfiles] = useState<Item[]>([]);
+  const [companyId, setCompanyId] = useState("");
+  const [profileId, setProfileId] = useState("");
 
-  // form state
-  const [companyId, setCompanyId] = useState('')
-  const [profileId, setProfileId] = useState('')
-  const [goal, setGoal] = useState('')
-  const [segment, setSegment] = useState('')
-  const [channel, setChannel] = useState('')
-  const [question, setQuestion] = useState('')
-  const [number, setNumber] = useState('')   // value line
-  const [address, setAddress] = useState('')
+  // Inputs
+  const GOAL_OPTS = useMemo(
+    () => ["Kvalificera", "Boka samtal/tid senare", "Sälj/Avslut"],
+    []
+  );
+  const SEG_OPTS = useMemo(
+    () => ["Enpersonshushåll", "Tvåpersonshushåll", "Familjehushåll"],
+    []
+  );
+  const CHANNEL_OPTS = useMemo(() => ["Telefon", "SMS", "E-post"], []);
 
-  // data
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [profiles, setProfiles] = useState<Profile[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string>('')
+  const [goal, setGoal] = useState("");
+  const [segment, setSegment] = useState("");
+  const [channel, setChannel] = useState("");
 
-  const [res, setRes] = useState<QaResponse|null>(null)
+  const [valueLine, setValueLine] = useState(""); // “Värderad rad (valfritt)”
+  const [address, setAddress] = useState("");
+  const [question, setQuestion] = useState("");
 
-  const labels = L(lang)
+  // Submit state
+  const [submitting, setSubmitting] = useState(false);
 
-  // fetch companies & profiles
-  useEffect(()=>{
-    fetch('/api/company').then(r=>r.json()).then(j=>{
-      // support both {companies:[]} and array fallback
-      const arr = Array.isArray(j) ? j : (Array.isArray(j?.companies) ? j.companies : [])
-      setCompanies(arr || [])
-    }).catch(()=>{})
-    fetch('/api/profiles').then(r=>r.json()).then(j=>{
-      const arr = Array.isArray(j) ? j : (Array.isArray(j?.profiles) ? j.profiles : [])
-      setProfiles(arr || [])
-    }).catch(()=>{})
-  },[])
+  // Outputs
+  const [oneLiner, setOneLiner] = useState("");
+  const [why, setWhy] = useState("");
+  const [ack, setAck] = useState("");
+  const [shortScript, setShortScript] = useState("");
+  const [fullScript, setFullScript] = useState("");
+  const [math, setMath] = useState("");
+  const [nextStep, setNextStep] = useState("");
 
-  // local like/rating store
-  type LR = { liked?: boolean, rating?: number }
-  const [lr, setLR] = useState<Record<string, LR>>(()=> {
-    if(typeof window==='undefined') return {}
-    try{ return JSON.parse(localStorage.getItem('qa-likes') || '{}') }catch{ return {} }
-  })
-  useEffect(()=>{
-    if(typeof window==='undefined') return
-    localStorage.setItem('qa-likes', JSON.stringify(lr))
-  }, [lr])
+  // Feedback state per block
+  const [likes, setLikes] = useState<Record<string, "like" | "dislike" | "">>({
+    one_liner: "",
+    why: "",
+    ack: "",
+    short_script: "",
+    full_script: "",
+    math: "",
+    next_step: "",
+  });
+  const [rating, setRating] = useState(0);
 
-  function key(e:string){ return e.toLowerCase().replace(/\s+/g,'_') }
-
-  async function submit(){
-    setError('')
-    setLoading(true)
-    try{
-      const body = {
-        lang, question, companyId, profileId, goal, segment, channel, number, address
+  // Load dropdown data
+  useEffect(() => {
+    (async () => {
+      try {
+        const [cRes, pRes] = await Promise.all([
+          fetch("/api/qa/companies").then((r) => r.json()).catch(() => ({ items: [] })),
+          fetch("/api/qa/profiles").then((r) => r.json()).catch(() => ({ items: [] })),
+        ]);
+        setCompanies(Array.isArray(cRes.items) ? cRes.items : []);
+        setProfiles(Array.isArray(pRes.items) ? pRes.items : []);
+      } catch {
+        setCompanies([]);
+        setProfiles([]);
       }
-      const r = await fetch('/api/qa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      })
-      if(!r.ok){
-        const tx = await r.text().catch(()=> '')
-        throw new Error(tx || `HTTP ${r.status}`)
+    })();
+  }, []);
+
+  const onKeyDownSubmit = (e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      onSubmit();
+    }
+  };
+
+  async function onSubmit() {
+    if (submitting) return;
+    if (!question.trim()) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/qa/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lang,
+          companyId: companyId || undefined,
+          profileId: profileId || undefined,
+          goal: goal || undefined,
+          segment: segment || undefined,
+          channel: channel || undefined,
+          valueLine: valueLine || undefined,
+          address: address || undefined,
+          question: question.trim(),
+        }),
+      });
+      const j = await res.json().catch(() => null);
+      if (!res.ok || !j?.ok) {
+        console.error("ask failed", j);
+        return;
       }
-      const j: QaResponse = await r.json()
-      setRes(j)
-    }catch(e:any){
-      setError(e?.message || 'Failed to get answers')
-    }finally{
-      setLoading(false)
+      setOneLiner(j.one_liner || "");
+      setWhy(j.why || "");
+      setAck(j.ack || "");
+      setShortScript(j.short_script || "");
+      setFullScript(j.full_script || "");
+      setMath(j.math || "");
+      setNextStep(j.next_step || "");
+      // reset feedback
+      setLikes({
+        one_liner: "",
+        why: "",
+        ack: "",
+        short_script: "",
+        full_script: "",
+        math: "",
+        next_step: "",
+      });
+      setRating(0);
+    } finally {
+      setSubmitting(false);
     }
   }
 
-  // Enter to submit on any input/textarea (without Shift)
-  function onKeyDownSubmit(e: React.KeyboardEvent<HTMLElement>){
-    if(e.key === 'Enter' && !e.shiftKey){
-      e.preventDefault()
-      submit()
-    }
-  }
+  const copyText = async (t: string) => {
+    try {
+      await navigator.clipboard.writeText(t || "");
+    } catch {}
+  };
 
-  function copyText(t: string){
-    navigator.clipboard?.writeText(t).catch(()=>{})
-  }
-
-  function like(section: string, v: boolean){
-    const k = key(section)
-    setLR(s=> ({ ...s, [k]: { ...(s[k]||{}), liked: v } }))
-    // Best-effort async save to a KB API if you add one later
-    fetch('/api/kb', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ section, text: (res?.sections as any)?.[section] || '', like: v, meta: res?.meta || {} })
-    }).catch(()=>{})
-  }
-
-  function rate(section: string, stars: number){
-    const k = key(section)
-    setLR(s=> ({ ...s, [k]: { ...(s[k]||{}), rating: stars } }))
-    fetch('/api/kb', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ section, rating: stars, meta: res?.meta || {} })
-    }).catch(()=>{})
-  }
-
-  const sectionOrder: Array<keyof Sections> = [
-    'one_liner','why','acknowledge','short_script','long_script','next_step'
-  ]
+  const FieldLabel = ({ children }: { children: React.ReactNode }) => (
+    <div className="text-sm font-medium text-slate-700 mb-1">{children}</div>
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{labels.title}</h1>
-        <div className="flex items-center gap-2">
-          <span className="text-sm">SV</span>
-          <input type="checkbox" checked={lang==='en'} onChange={e=> setLang(e.target.checked ? 'en':'sv')} />
-          <span className="text-sm">EN</span>
+    <div className="max-w-3xl mx-auto p-4 md:p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-semibold">Q&amp;A</h1>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className={`px-3 py-1 rounded border ${lang === "sv" ? "bg-slate-900 text-white" : ""}`}
+            onClick={() => setLang("sv")}
+          >
+            SV
+          </button>
+          <button
+            type="button"
+            className={`px-3 py-1 rounded border ${lang === "en" ? "bg-slate-900 text-white" : ""}`}
+            onClick={() => setLang("en")}
+          >
+            EN
+          </button>
         </div>
       </div>
 
-      {/* Company / Profile */}
-      <div className="grid md:grid-cols-2 gap-3">
-        <label className="text-sm">
-          {labels.company}
-          <select className="border rounded p-2 w-full" value={companyId} onChange={e=>setCompanyId(e.target.value)}>
-            <option value="">{labels.company_ph}</option>
-            {companies.map(c=> <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </label>
-        <label className="text-sm">
-          {labels.profile}
-          <select className="border rounded p-2 w-full" value={profileId} onChange={e=>setProfileId(e.target.value)}>
-            <option value="">{labels.profile_ph}</option>
-            {profiles.map(p=> <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        </label>
+      {/* Företag */}
+      <div className="mb-3">
+        <FieldLabel>Företag</FieldLabel>
+        <select
+          className="w-full border rounded px-3 py-2"
+          value={companyId}
+          onChange={(e) => setCompanyId(e.target.value)}
+          onKeyDown={onKeyDownSubmit}
+        >
+          <option value="">{lang === "en" ? "Select company…" : "Välj företag…"}</option>
+          {companies.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {/* Optional selects */}
-      <div className="grid md:grid-cols-3 gap-3">
-        <label className="text-sm">
-          {labels.goal}
-          <select className="border rounded p-2 w-full" value={goal} onChange={e=>setGoal(e.target.value)}>
-            <option value=""></option>
-            {labels.goal_opts.map(x=> <option key={x} value={x}>{x}</option>)}
-          </select>
-        </label>
-        <label className="text-sm">
-          {labels.segment}
-          <select className="border rounded p-2 w-full" value={segment} onChange={e=>setSegment(e.target.value)}>
-            <option value=""></option>
-            {labels.segment_opts.map(x=> <option key={x} value={x}>{x}</option>)}
-          </select>
-        </label>
-        <label className="text-sm">
-          {labels.channel}
-          <select className="border rounded p-2 w-full" value={channel} onChange={e=>setChannel(e.target.value)}>
-            <option value=""></option>
-            {labels.channel_opts.map(x=> <option key={x} value={x}>{x}</option>)}
-          </select>
-        </label>
+      {/* Profil */}
+      <div className="mb-3">
+        <FieldLabel>Profil</FieldLabel>
+        <select
+          className="w-full border rounded px-3 py-2"
+          value={profileId}
+          onChange={(e) => setProfileId(e.target.value)}
+          onKeyDown={onKeyDownSubmit}
+        >
+          <option value="">{lang === "en" ? "Select profile…" : "Välj profil…"}</option>
+          {profiles.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {/* Value line + Address */}
-      <div className="grid md:grid-cols-2 gap-3">
-        <label className="text-sm">
-          {labels.number}
-          <input
-            className="border rounded p-2 w-full"
-            value={number}
-            onChange={e=>setNumber(e.target.value)}
-            onKeyDown={onKeyDownSubmit}
-            placeholder={labels.number_ph}
-          />
-        </label>
-        <label className="text-sm">
-          {labels.address}
-          <input
-            className="border rounded p-2 w-full"
-            value={address}
-            onChange={e=>setAddress(e.target.value)}
-            onKeyDown={onKeyDownSubmit}
-            placeholder={labels.address_ph}
-          />
-        </label>
+      {/* Goal */}
+      <div className="mb-3">
+        <FieldLabel>Mål (valfritt)</FieldLabel>
+        <select
+          value={goal}
+          onChange={(e) => setGoal(e.target.value)}
+          onKeyDown={onKeyDownSubmit}
+          className="w-full border rounded px-3 py-2"
+        >
+          <option value="">{lang === "en" ? "Select goal…" : "Välj mål…"}</option>
+          {GOAL_OPTS.map((x) => (
+            <option key={x} value={x}>
+              {x}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Segment */}
+      <div className="mb-3">
+        <FieldLabel>Segment (valfritt)</FieldLabel>
+        <select
+          value={segment}
+          onChange={(e) => setSegment(e.target.value)}
+          onKeyDown={onKeyDownSubmit}
+          className="w-full border rounded px-3 py-2"
+        >
+          <option value="">{lang === "en" ? "Select segment…" : "Välj segment…"}</option>
+          {SEG_OPTS.map((x) => (
+            <option key={x} value={x}>
+              {x}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Channel */}
+      <div className="mb-3">
+        <FieldLabel>Kanal (valfritt)</FieldLabel>
+        <select
+          value={channel}
+          onChange={(e) => setChannel(e.target.value)}
+          onKeyDown={onKeyDownSubmit}
+          className="w-full border rounded px-3 py-2"
+        >
+          <option value="">{lang === "en" ? "Select channel…" : "Välj kanal…"}</option>
+          {CHANNEL_OPTS.map((x) => (
+            <option key={x} value={x}>
+              {x}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Value line */}
+      <div className="mb-3">
+        <FieldLabel>Värderad rad (valfritt)</FieldLabel>
+        <input
+          type="text"
+          className="w-full border rounded px-3 py-2"
+          placeholder={
+            lang === "en"
+              ? "Example: reduce your electricity bill up to 30 percent per month"
+              : "Exempel: sänk din elräkning upp till 30 % per månad"
+          }
+          value={valueLine}
+          onChange={(e) => setValueLine(e.target.value)}
+          onKeyDown={onKeyDownSubmit}
+        />
+      </div>
+
+      {/* Address */}
+      <div className="mb-3">
+        <FieldLabel>Adress (valfritt)</FieldLabel>
+        <input
+          type="text"
+          className="w-full border rounded px-3 py-2"
+          placeholder={
+            lang === "en"
+              ? "Example: Södra Förstadsgatan 1, Malmö"
+              : "Exempel: Södra Förstadsgatan 1, Malmö"
+          }
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          onKeyDown={onKeyDownSubmit}
+        />
       </div>
 
       {/* Question */}
-      <label className="text-sm block">
-        {labels.ask_label}
+      <div className="mb-2">
+        <FieldLabel>Fråga / Signal</FieldLabel>
         <textarea
-          className="border rounded p-3 w-full min-h-[110px]"
+          className="w-full border rounded px-3 py-2 min-h-[90px]"
+          placeholder={
+            lang === "en"
+              ? 'How do I handle "I don’t have time"?'
+              : 'Hur hanterar jag ”jag har inte tid”?'
+          }
           value={question}
-          onChange={e=>setQuestion(e.target.value)}
-          onKeyDown={onKeyDownSubmit}
-          placeholder={labels.ask_ph}
+          onChange={(e) => setQuestion(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter submits, Shift+Enter = newline
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              onSubmit();
+            }
+          }}
         />
-      </label>
+      </div>
 
-      {/* Centered button */}
-      <div className="w-full grid place-items-center">
+      {/* Submit centered */}
+      <div className="flex justify-center mb-6">
         <button
-          onClick={(e)=>{ e.preventDefault(); submit() }}
-          disabled={loading}
-          className="bg-[var(--brand,#111827)] text-white rounded px-6 py-2 disabled:opacity-50"
+          type="button"
+          onClick={onSubmit}
+          disabled={submitting || !question.trim()}
+          className="px-4 py-2 rounded bg-slate-900 text-white disabled:opacity-50"
         >
-          {loading ? (lang==='en' ? 'Fetching…' : 'Hämtar…') : labels.get_answer}
+          {lang === "en" ? "Get answer" : "Hämta svar"}
         </button>
       </div>
 
-      {error && <div className="text-red-600 text-sm">{error}</div>}
-
       {/* Answers */}
-      {res?.sections && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-medium">{labels.answers}</h2>
-          {sectionOrder.map((secKey)=> {
-            const text = (res.sections as any)[secKey] as string
-            if(!text) return null
-            const lrKey = secKey.toLowerCase()
-            const liked = !!lr[lrKey]?.liked
-            const rating = lr[lrKey]?.rating || 0
-            const prettyTitle = secKey.replace(/_/g,' ').replace(/\b\w/g, m=> m.toUpperCase())
+      {(oneLiner || why || ack || shortScript || fullScript || math || nextStep) && (
+        <div className="space-y-3">
+          <AnswerBlock
+            title="One-liner"
+            text={oneLiner}
+            onCopy={() => copyText(oneLiner)}
+            liked={likes.one_liner}
+            onLike={() => setLikes((l) => ({ ...l, one_liner: l.one_liner === "like" ? "" : "like" }))}
+            onDislike={() =>
+              setLikes((l) => ({ ...l, one_liner: l.one_liner === "dislike" ? "" : "dislike" }))
+            }
+          />
+          <AnswerBlock
+            title="Varför"
+            text={why}
+            onCopy={() => copyText(why)}
+            liked={likes.why}
+            onLike={() => setLikes((l) => ({ ...l, why: l.why === "like" ? "" : "like" }))}
+            onDislike={() => setLikes((l) => ({ ...l, why: l.why === "dislike" ? "" : "dislike" }))}
+          />
+          <AnswerBlock
+            title="Bekräfta"
+            text={ack}
+            onCopy={() => copyText(ack)}
+            liked={likes.ack}
+            onLike={() => setLikes((l) => ({ ...l, ack: l.ack === "like" ? "" : "like" }))}
+            onDislike={() => setLikes((l) => ({ ...l, ack: l.ack === "dislike" ? "" : "dislike" }))}
+          />
+          <AnswerBlock
+            title="Kort manus"
+            text={shortScript}
+            onCopy={() => copyText(shortScript)}
+            liked={likes.short_script}
+            onLike={() =>
+              setLikes((l) => ({ ...l, short_script: l.short_script === "like" ? "" : "like" }))
+            }
+            onDislike={() =>
+              setLikes((l) => ({
+                ...l,
+                short_script: l.short_script === "dislike" ? "" : "dislike",
+              }))
+            }
+          />
+          <AnswerBlock
+            title="Fullt manus"
+            text={fullScript}
+            onCopy={() => copyText(fullScript)}
+            liked={likes.full_script}
+            onLike={() =>
+              setLikes((l) => ({ ...l, full_script: l.full_script === "like" ? "" : "like" }))
+            }
+            onDislike={() =>
+              setLikes((l) => ({
+                ...l,
+                full_script: l.full_script === "dislike" ? "" : "dislike",
+              }))
+            }
+          />
+          <AnswerBlock
+            title="Uträkning"
+            text={math}
+            onCopy={() => copyText(math)}
+            liked={likes.math}
+            onLike={() => setLikes((l) => ({ ...l, math: l.math === "like" ? "" : "like" }))}
+            onDislike={() => setLikes((l) => ({ ...l, math: l.math === "dislike" ? "" : "dislike" }))}
+          />
+          <AnswerBlock
+            title="Nästa steg"
+            text={nextStep}
+            onCopy={() => copyText(nextStep)}
+            liked={likes.next_step}
+            onLike={() =>
+              setLikes((l) => ({ ...l, next_step: l.next_step === "like" ? "" : "like" }))
+            }
+            onDislike={() =>
+              setLikes((l) => ({ ...l, next_step: l.next_step === "dislike" ? "" : "dislike" }))
+            }
+          />
 
-            return (
-              <div key={secKey} className="border rounded p-3 bg-slate-50">
-                <div className="flex items-center justify-between">
-                  <div className="font-medium">{prettyTitle}</div>
-                  <div className="flex items-center gap-3">
-                    <button className="text-sm underline" onClick={()=>copyText(text)}>{labels.copy}</button>
-                    <button className="text-sm" onClick={()=>like(secKey, true)}>{liked ? '✅ '+labels.liked : '👍 '+labels.like}</button>
-                    <button className="text-sm" onClick={()=>like(secKey, false)}>👎 {labels.unlike}</button>
-                    <div className="flex items-center gap-1">
-                      <span className="text-sm">{labels.rating}:</span>
-                      {[1,2,3,4,5].map(st=>(
-                        <button
-                          key={st}
-                          aria-label={`rate-${st}`}
-                          onClick={()=>rate(secKey, st)}
-                          className="text-lg"
-                          title={`${st}/5`}
-                        >
-                          {st <= rating ? '★' : '☆'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-2 whitespace-pre-wrap">{text}</div>
-              </div>
-            )
-          })}
-
-          {/* meta line */}
-          <div className="text-xs text-slate-600">
-            {labels.details} — mål: {res.meta?.goal || '–'}, segment: {res.meta?.segment || '–'}, kanal: {res.meta?.channel || '–'}, number: {res.meta?.value_line || '–'}, adress: {res.meta?.address || '–'}
+          {/* Overall rating */}
+          <div className="border rounded p-3 bg-white">
+            <div className="font-medium mb-2">{lang === "en" ? "Rating (whole answer)" : "Betyg (hela svaret)"}</div>
+            <StarRating value={rating} onChange={setRating} onEnter={() => { /* hook save if desired */ }} />
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }
