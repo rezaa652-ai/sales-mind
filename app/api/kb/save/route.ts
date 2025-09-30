@@ -1,4 +1,74 @@
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
-export async function POST(req: NextRequest){
-  return NextResponse.json({ ok: true })
+import { createClient } from '@supabase/supabase-js'
+
+function s() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  return createClient(url, key, { auth: { persistSession: false } })
+}
+
+type SaveBody = {
+  companyId?: string
+  profileId?: string
+  question: string
+  outputs: {
+    one_liner?: string
+    why?: string
+    ack?: string
+    short_script?: string
+    full_script?: string
+    math?: string
+    next_step?: string
+  }
+  like?: boolean              // 👍 true / 👎 false / undefined
+  rating?: number | null      // 1..5
+  tags?: string[] | null      // optional tags
+  eventId?: string | null     // link to qa_events row
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const supabase = s()
+    const body: SaveBody = await req.json()
+
+    if (!body?.question) return NextResponse.json({ error: 'missing_question' }, { status: 400 })
+
+    const tables = ['kb', 'knowledge_base', 'kb_items']
+    let inserted: any = null
+    let lastError: any = null
+
+    for (const table of tables) {
+      const payload: any = {
+        company_id: body.companyId || null,
+        profile_id: body.profileId || null,
+        question: body.question,
+        one_liner: body.outputs?.one_liner || null,
+        why: body.outputs?.why || null,
+        ack: body.outputs?.ack || null,
+        short_script: body.outputs?.short_script || null,
+        full_script: body.outputs?.full_script || null,
+        math: body.outputs?.math || null,
+        next_step: body.outputs?.next_step || null,
+        liked: body.like ?? null,
+        rating: body.rating ?? null,
+        tags: body.tags ?? null,
+        event_id: body.eventId ?? null
+      }
+
+      const { data, error } = await supabase.from(table).insert(payload).select().maybeSingle()
+      if (!error && data) { inserted = data; break }
+      lastError = error
+    }
+
+    if (!inserted) {
+      return NextResponse.json({ error: 'insert_failed', detail: lastError?.message || 'kb insert failed' }, { status: 500 })
+    }
+
+    return NextResponse.json({ ok: true, item: inserted })
+  } catch (e: any) {
+    return NextResponse.json({ error: 'kb_save_error', detail: e?.message || String(e) }, { status: 500 })
+  }
 }
