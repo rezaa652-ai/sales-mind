@@ -2,6 +2,7 @@
 import React from "react";
 
 type Center = { lat: number; lon: number };
+
 export default function GeoElectricityInfo({
   address,
   center
@@ -21,7 +22,7 @@ export default function GeoElectricityInfo({
     let stop = false;
 
     async function run() {
-      const hasCenter = center && Number.isFinite(center.lat) && Number.isFinite(center.lon);
+      const hasCenter = !!(center && Number.isFinite(center.lat) && Number.isFinite(center.lon));
       const hasAddress = !!(address && address.trim());
       if (!hasCenter && !hasAddress) {
         setState({ loading: false });
@@ -36,9 +37,11 @@ export default function GeoElectricityInfo({
         const j = await r.json().catch(() => null);
         if (stop) return;
         if (!r.ok || !j?.ok) {
-          setState({ loading: false, err: j?.detail || "Kunde inte hämta eldata" });
+          setState({ loading: false, err: j?.detail || "Kunde inte hämta elinformation" });
           return;
         }
+        // Debug (visible in browser console)
+        console.log("[GeoElectricityInfo]", j);
         setState({
           loading: false,
           elomrade: j.elomrade,
@@ -50,25 +53,40 @@ export default function GeoElectricityInfo({
       }
     }
 
-    const t = setTimeout(run, 350); // mild debounce while typing
+    const t = setTimeout(run, 200); // small debounce
     return () => { stop = true; clearTimeout(t); };
   }, [address, center?.lat, center?.lon]);
 
-  if (state.loading) {
-    return <div className="text-xs text-slate-500 mt-1">Hämtar elinformation…</div>;
-  }
-  if (state.err) {
-    return <div className="text-xs text-red-600 mt-1">{state.err}</div>;
-  }
-  if (!state.elomrade && !state.elnatName) return null;
-
+  // UI
   return (
-    <div className="text-xs text-slate-700 mt-1">
-      {state.elomrade && <>Elområde: <span className="font-medium">{state.elomrade}</span></>}
-      {state.elnatName && <> • Elnät: <span className="font-medium">{state.elnatName}</span></>}
-      {!state.elnatName && state.dataset === false && (
-        <> • (Installera <code>data/elnat_areas.geojson</code> för lokalt elnät)</>
-      )}
+    <div className="mt-2">
+      <div className="border rounded-md p-3 bg-white">
+        <div className="text-sm font-medium mb-1">Elinformation</div>
+
+        {state.loading && (
+          <div className="text-sm text-slate-500">Hämtar elinformation…</div>
+        )}
+
+        {state.err && (
+          <div className="text-sm text-red-600">{state.err}</div>
+        )}
+
+        {!state.loading && !state.err && (
+          <div className="text-sm text-slate-800">
+            {state.elomrade && (
+              <>Elområde: <span className="font-semibold">{state.elomrade}</span></>
+            )}
+            {state.elnatName && (
+              <> • Elnät: <span className="font-semibold">{state.elnatName}</span></>
+            )}
+            {!state.elnatName && state.dataset === false && (
+              <div className="text-xs text-slate-600 mt-1">
+                (Installera <code>data/elnat_areas.geojson</code> för lokalt elnät)
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
