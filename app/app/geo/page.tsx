@@ -1,5 +1,12 @@
 'use client'
+'use client'
+'use client'
+'use client'
+'use client'
+'use client'
+'use client'
 import React, { useEffect, useMemo, useState } from 'react'
+import GeoElectricityInfo from "@/components/GeoElectricityInfo";
 import { GoogleMap, Marker, useLoadScript } from '@react-google-maps/api'
 
 // If you maintain a kommun list, point this to your file.
@@ -161,6 +168,7 @@ export default function GeoPage(){
             placeholder={L.address_ph}
             aria-label={L.enter_hint}
           />
+            <GeoElectricityInfo address={address} center={data?.center ? { lat: data.center.lat, lon: data.center.lon } : undefined} />
         </label>
         <label className="text-sm">
           {L.radius}

@@ -1,0 +1,10 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type":"Feature",
+      "properties":{"name":"Exempel Elnät AB","orgnr":"556000-0000","area_id":"EX-001"},
+      "geometry":{"type":"Polygon","coordinates":[[[13.0,55.55],[13.2,55.55],[13.2,55.70],[13.0,55.70],[13.0,55.55]]]}
+    }
+  ]
+}

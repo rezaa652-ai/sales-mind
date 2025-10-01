@@ -1,10 +1,17 @@
 // @ts-nocheck
-// Syncar Supabase-session till server-cookies så SSR & API:er ser användaren
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
+// Single middleware with electricity API bypass + Supabase session sync
 export async function middleware(req: NextRequest) {
+  // Bypass: allow public access + avoid auth redirect/HTML for this API
+  const { pathname } = new URL(req.url)
+  if (pathname.startsWith('/api/geo/electricity')) {
+    return NextResponse.next()
+  }
+
+  // --- Supabase auth cookie sync (your existing logic) ---
   let res = NextResponse.next()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,7 +25,7 @@ export async function middleware(req: NextRequest) {
     }
   )
 
-  // Denna call gör att libbet uppdaterar/ förnyar cookies vid behov
+  // Update/refresh cookies if needed
   await supabase.auth.getUser()
 
   return res
