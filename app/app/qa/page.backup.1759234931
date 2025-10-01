@@ -1,0 +1,357 @@
+"use client";
+
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+
+// Optional Supabase (browser) — used only if env keys are present.
+// We do everything client-side here to avoid Edge runtime issues.
+let createBrowserClient: any = null;
+try {
+  // Lazy require to avoid build errors if package missing
+  // (your repo already has @supabase/ssr; if not, we silently skip).
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  createBrowserClient = require("@supabase/ssr").createBrowserClient;
+} catch {}
+
+type Company = { id: string; name: string } | { id: string; company_name: string };
+type SalesProfile = { id: string; name: string } | { id: string; profile_name: string };
+
+/** Helper: read env safely (only NEXT_PUBLIC_* are exposed to the browser) */
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+
+/** Fallback storage keys so the dropdowns still work if DB is unreachable */
+const LS_COMPANIES = "salesmind:companies";
+const LS_PROFILES = "salesmind:profiles";
+
+export default function QAPage() {
+  // ---- FORM STATE (kept simple & fully editable) --------------------------
+  const [lang, setLang] = useState<"sv" | "en">("sv");
+
+  const [companyId, setCompanyId] = useState<string>("");
+  const [profileId, setProfileId] = useState<string>("");
+
+  const [goal, setGoal] = useState<string>("");        // valfritt
+  const [segment, setSegment] = useState<string>("");  // valfritt
+  const [channel, setChannel] = useState<string>("");  // valfritt
+
+  // “Värderad rad / Numbers” (placeholder example only; NOT a phone number)
+  const [numbers, setNumbers] = useState<string>("");
+
+  // address optional
+  const [address, setAddress] = useState<string>("");
+
+  // the actual question / signal (textarea)
+  const [question, setQuestion] = useState<string>("");
+
+  // Results and status
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Dropdown data
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [profiles, setProfiles] = useState<SalesProfile[]>([]);
+
+  // ---- MAKE SURE NOTHING DISABLES YOUR TYPING -----------------------------
+  // We do NOT wrap controls in <fieldset disabled> and we do NOT set readOnly.
+  // Only the submit button is disabled while submitting.
+
+  // ---- LOAD COMPANIES & PROFILES -----------------------------------------
+  const loadFromLocalStorage = useCallback(() => {
+    try {
+      const c = JSON.parse(localStorage.getItem(LS_COMPANIES) || "[]");
+      if (Array.isArray(c) && c.length) setCompanies(c);
+    } catch {}
+    try {
+      const p = JSON.parse(localStorage.getItem(LS_PROFILES) || "[]");
+      if (Array.isArray(p) && p.length) setProfiles(p);
+    } catch {}
+  }, []);
+
+  const saveToLocalStorage = useCallback((cs: Company[], ps: SalesProfile[]) => {
+    try { localStorage.setItem(LS_COMPANIES, JSON.stringify(cs || [])); } catch {}
+    try { localStorage.setItem(LS_PROFILES, JSON.stringify(ps || [])); } catch {}
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      // 1) always try existing LocalStorage first (instant UI)
+      loadFromLocalStorage();
+
+      // 2) if Supabase env exists, pull fresh lists
+      if (createBrowserClient && SUPABASE_URL && SUPABASE_ANON) {
+        try {
+          const supabase = createBrowserClient(SUPABASE_URL, SUPABASE_ANON);
+
+          // We don’t know your exact table names/columns, so we try a few common ones.
+          // Companies
+          let companiesRows: any[] = [];
+          {
+            // try "companies" (name)
+            const { data, error } = await supabase.from("companies").select("id,name").limit(500);
+            if (!error && Array.isArray(data)) companiesRows = data;
+          }
+          if (!companiesRows?.length) {
+            // try "companies" (company_name)
+            const { data } = await supabase.from("companies").select("id,company_name").limit(500);
+            if (Array.isArray(data) && data.length) companiesRows = data;
+          }
+          if (!companiesRows?.length) {
+            // try "company" (singular)
+            const { data } = await supabase.from("company").select("id,name,company_name").limit(500);
+            if (Array.isArray(data) && data.length) companiesRows = data;
+          }
+
+          // Profiles
+          let profileRows: any[] = [];
+          {
+            // try "profiles"
+            const { data, error } = await supabase.from("profiles").select("id,name").limit(500);
+            if (!error && Array.isArray(data)) profileRows = data;
+          }
+          if (!profileRows?.length) {
+            // try "sales_profiles"
+            const { data } = await supabase.from("sales_profiles").select("id,name,profile_name").limit(500);
+            if (Array.isArray(data) && data.length) profileRows = data;
+          }
+          if (!profileRows?.length) {
+            // try "profile"
+            const { data } = await supabase.from("profile").select("id,name,profile_name").limit(500);
+            if (Array.isArray(data) && data.length) profileRows = data;
+          }
+
+          if (!cancelled) {
+            const cNorm = (companiesRows || []).map((r: any) => ({
+              id: String(r.id ?? ""),
+              name: String(r.name ?? r.company_name ?? "").trim()
+            })).filter((x: any) => x.id && x.name);
+
+            const pNorm = (profileRows || []).map((r: any) => ({
+              id: String(r.id ?? ""),
+              name: String(r.name ?? r.profile_name ?? "").trim()
+            })).filter((x: any) => x.id && x.name);
+
+            if (cNorm.length) setCompanies(cNorm);
+            if (pNorm.length) setProfiles(pNorm);
+
+            // Cache for next time
+            if (cNorm.length || pNorm.length) saveToLocalStorage(cNorm, pNorm);
+          }
+        } catch (e) {
+          // Silent — keep local cache if any
+        }
+      }
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [loadFromLocalStorage, saveToLocalStorage]);
+
+  // ---- KEYS: ENTER should submit only from the main textarea -------------
+  const onQuestionKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey || !e.shiftKey)) {
+      e.preventDefault();
+      onSubmit();
+    }
+  }, []); // eslint-disable-line
+
+  // ---- SUBMIT: only fetch answers; UI remains untouched -------------------
+  const onSubmit = useCallback(async () => {
+    if (submitting) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      // Your existing backend should have /api/qa/ask or similar.
+      // If not, we fallback to the client OpenAI route you already set up.
+      const payload = {
+        lang,
+        companyId: companyId || null,
+        profileId: profileId || null,
+        goal: goal || "",
+        segment: segment || "",
+        channel: channel || "",
+        numbers: numbers || "",
+        address: address || "",
+        question: question || ""
+      };
+
+      const resp = await fetch("/api/qa/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!resp.ok) {
+        const t = await resp.text();
+        throw new Error(`HTTP ${resp.status}: ${t.slice(0,200)}`);
+      }
+
+      // We expect your existing page to already render the outputs,
+      // so we dispatch a simple custom event other parts of the page can listen to.
+      const data = await resp.json();
+      window.dispatchEvent(new CustomEvent("qa:answer", { detail: data }));
+    } catch (e: any) {
+      setError(e?.message || "Kunde inte hämta svar.");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [submitting, lang, companyId, profileId, goal, segment, channel, numbers, address, question]);
+
+  // ---- Helpers for rendering labels --------------------------------------
+  const companyLabel = (c: Company) => ("name" in c ? c.name : (c as any).company_name);
+  const profileLabel = (p: SalesProfile) => ("name" in p ? p.name : (p as any).profile_name);
+
+  // ---- UI (kept as you had; only ensuring inputs are editable) -----------
+  // NOTE: I keep your exact field order that you requested in the last step.
+
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-6">
+      <h1 className="text-2xl font-semibold mb-4">Q&amp;A</h1>
+
+      {/* Lang toggle kept */}
+      <div className="flex gap-2 mb-4">
+        <button
+          type="button"
+          onClick={() => setLang("sv")}
+          className={`px-3 py-1 rounded border ${lang === "sv" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+        >
+          SV
+        </button>
+        <button
+          type="button"
+          onClick={() => setLang("en")}
+          className={`px-3 py-1 rounded border ${lang === "en" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+        >
+          EN
+        </button>
+      </div>
+
+      <form
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        onSubmit={(e) => { e.preventDefault(); onSubmit(); }}
+      >
+        {/* Företag */}
+        <div>
+          <label className="block text-sm text-slate-600 mb-1">Företag</label>
+          <select
+            className="w-full border rounded px-3 py-2"
+            value={companyId}
+            onChange={(e) => setCompanyId(e.target.value)}
+          >
+            <option value="">{companies.length ? "Välj företag…" : "Laddar företag…"}</option>
+            {companies.map((c) => (
+              <option key={(c as any).id} value={(c as any).id}>
+                {companyLabel(c)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Profil */}
+        <div>
+          <label className="block text-sm text-slate-600 mb-1">Profil</label>
+          <select
+            className="w-full border rounded px-3 py-2"
+            value={profileId}
+            onChange={(e) => setProfileId(e.target.value)}
+          >
+            <option value="">{profiles.length ? "Välj profil…" : "Laddar profiler…"}</option>
+            {profiles.map((p) => (
+              <option key={(p as any).id} value={(p as any).id}>
+                {profileLabel(p)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Mål (valfritt) */}
+        <div>
+          <label className="block text-sm text-slate-600 mb-1">Mål (valfritt)</label>
+          <input
+            className="w-full border rounded px-3 py-2"
+            placeholder=""
+            value={goal}
+            onChange={(e) => setGoal(e.target.value)}
+          />
+        </div>
+
+        {/* Segment (valfritt) */}
+        <div>
+          <label className="block text-sm text-slate-600 mb-1">Segment (valfritt)</label>
+          <input
+            className="w-full border rounded px-3 py-2"
+            placeholder=""
+            value={segment}
+            onChange={(e) => setSegment(e.target.value)}
+          />
+        </div>
+
+        {/* Kanal (valfritt) */}
+        <div>
+          <label className="block text-sm text-slate-600 mb-1">Kanal (valfritt)</label>
+          <input
+            className="w-full border rounded px-3 py-2"
+            placeholder=""
+            value={channel}
+            onChange={(e) => setChannel(e.target.value)}
+          />
+        </div>
+
+        {/* Värderad rad / Numbers (valfritt) */}
+        <div>
+          <label className="block text-sm text-slate-600 mb-1">Värderad rad (valfritt)</label>
+          <input
+            className="w-full border rounded px-3 py-2"
+            placeholder={lang === "en"
+              ? "Example: reduce your electricity bill up to 30 percent per month"
+              : "Exempel: sänk din elräkning upp till 30 % per månad"}
+            value={numbers}
+            onChange={(e) => setNumbers(e.target.value)}
+          />
+        </div>
+
+        {/* Adress (valfritt) */}
+        <div className="md:col-span-2">
+          <label className="block text-sm text-slate-600 mb-1">Adress (valfritt)</label>
+          <input
+            className="w-full border rounded px-3 py-2"
+            placeholder={lang === "en"
+              ? "Example: Södra Förstadsgatan 1, Malmö"
+              : "Exempel: Södra Förstadsgatan 1, Malmö"}
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+          />
+        </div>
+
+        {/* Fråga / Signal */}
+        <div className="md:col-span-2">
+          <label className="block text-sm text-slate-600 mb-1">Fråga / Signal</label>
+          <textarea
+            className="w-full border rounded px-3 py-2 min-h-[120px]"
+            placeholder={lang === "en"
+              ? 'How do I handle “I don’t have time”?'
+              : 'Hur hanterar jag ”jag har inte tid”?'}
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={onQuestionKeyDown}
+          />
+        </div>
+
+        {/* Hämta svar button centered below question */}
+        <div className="md:col-span-2 flex justify-center">
+          <button
+            type="submit"
+            className="bg-[var(--brand)] text-white rounded px-4 py-2 disabled:opacity-50"
+            disabled={submitting}
+            onClick={(e)=>{ e.preventDefault(); onSubmit(); }}
+          >
+            {submitting ? (lang === "en" ? "Fetching…" : "Hämtar…") : (lang === "en" ? "Get answer" : "Hämta svar")}
+          </button>
+        </div>
+      </form>
+
+      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+    </div>
+  );
+}

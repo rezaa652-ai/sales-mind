@@ -3,7 +3,7 @@
   "features": [
     {
       "type":"Feature",
-      "properties":{"name":"E.ON AB","orgnr":"556006-0600","area_id":"EON-SE4-001"},
+      "properties":{"name":"Ion","orgnr":"556000-0000","area_id":"EX-001"},
       "geometry":{
         "type":"Polygon",
         "coordinates":[
