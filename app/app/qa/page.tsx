@@ -242,131 +242,133 @@ export default function QAPage() {
         </div>
       </div>
 
-      {/* Företag */}
-      <div className="mb-3">
-        <FieldLabel>Företag</FieldLabel>
-        <select
-          className="w-full border rounded px-3 py-2"
-          value={companyId}
-          onChange={(e) => setCompanyId(e.target.value)}
-          onKeyDown={onKeyDownSubmit}
-        >
-          <option value="">{lang === "en" ? "Select company…" : "Välj företag…"}</option>
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+      {/* Row 1: Company + Profile */}
+      <div className="grid md:grid-cols-2 gap-3 mb-3">
+        <div>
+          <FieldLabel>Företag</FieldLabel>
+          <select
+            className="w-full border rounded px-3 py-2"
+            value={companyId}
+            onChange={(e) => setCompanyId(e.target.value)}
+            onKeyDown={onKeyDownSubmit}
+          >
+            <option value="">{lang === "en" ? "Select company…" : "Välj företag…"}</option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <FieldLabel>Profil</FieldLabel>
+          <select
+            className="w-full border rounded px-3 py-2"
+            value={profileId}
+            onChange={(e) => setProfileId(e.target.value)}
+            onKeyDown={onKeyDownSubmit}
+          >
+            <option value="">{lang === "en" ? "Select profile…" : "Välj profil…"}</option>
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* Profil */}
-      <div className="mb-3">
-        <FieldLabel>Profil</FieldLabel>
-        <select
-          className="w-full border rounded px-3 py-2"
-          value={profileId}
-          onChange={(e) => setProfileId(e.target.value)}
-          onKeyDown={onKeyDownSubmit}
-        >
-          <option value="">{lang === "en" ? "Select profile…" : "Välj profil…"}</option>
-          {profiles.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+      {/* Row 2: Goal + Segment + Channel */}
+      <div className="grid md:grid-cols-3 gap-3 mb-3">
+        <div>
+          <FieldLabel>Mål (valfritt)</FieldLabel>
+          <select
+            value={goal}
+            onChange={(e) => setGoal(e.target.value)}
+            onKeyDown={onKeyDownSubmit}
+            className="w-full border rounded px-3 py-2"
+          >
+            <option value="">{lang === "en" ? "Select goal…" : "Välj mål…"}</option>
+            {GOAL_OPTS.map((x) => (
+              <option key={x} value={x}>
+                {x}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <FieldLabel>Segment (valfritt)</FieldLabel>
+          <select
+            value={segment}
+            onChange={(e) => setSegment(e.target.value)}
+            onKeyDown={onKeyDownSubmit}
+            className="w-full border rounded px-3 py-2"
+          >
+            <option value="">{lang === "en" ? "Select segment…" : "Välj segment…"}</option>
+            {SEG_OPTS.map((x) => (
+              <option key={x} value={x}>
+                {x}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <FieldLabel>Kanal (valfritt)</FieldLabel>
+          <select
+            value={channel}
+            onChange={(e) => setChannel(e.target.value)}
+            onKeyDown={onKeyDownSubmit}
+            className="w-full border rounded px-3 py-2"
+          >
+            <option value="">{lang === "en" ? "Select channel…" : "Välj kanal…"}</option>
+            {CHANNEL_OPTS.map((x) => (
+              <option key={x} value={x}>
+                {x}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* Goal */}
-      <div className="mb-3">
-        <FieldLabel>Mål (valfritt)</FieldLabel>
-        <select
-          value={goal}
-          onChange={(e) => setGoal(e.target.value)}
-          onKeyDown={onKeyDownSubmit}
-          className="w-full border rounded px-3 py-2"
-        >
-          <option value="">{lang === "en" ? "Select goal…" : "Välj mål…"}</option>
-          {GOAL_OPTS.map((x) => (
-            <option key={x} value={x}>
-              {x}
-            </option>
-          ))}
-        </select>
+      {/* Row 3: Value line + Address */}
+      <div className="grid md:grid-cols-2 gap-3 mb-3">
+        <div>
+          <FieldLabel>Värderad rad (valfritt)</FieldLabel>
+          <input
+            type="text"
+            className="w-full border rounded px-3 py-2"
+            placeholder={
+              lang === "en"
+                ? "Example: reduce your electricity bill up to 30 percent per month"
+                : "Exempel: sänk din elräkning upp till 30 % per månad"
+            }
+            value={valueLine}
+            onChange={(e) => setValueLine(e.target.value)}
+            onKeyDown={onKeyDownSubmit}
+          />
+        </div>
+
+        <div>
+          <FieldLabel>Adress (valfritt)</FieldLabel>
+          <input
+            type="text"
+            className="w-full border rounded px-3 py-2"
+            placeholder={
+              lang === "en"
+                ? "Example: Södra Förstadsgatan 1, Malmö"
+                : "Exempel: Södra Förstadsgatan 1, Malmö"
+            }
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            onKeyDown={onKeyDownSubmit}
+          />
+        </div>
       </div>
 
-      {/* Segment */}
-      <div className="mb-3">
-        <FieldLabel>Segment (valfritt)</FieldLabel>
-        <select
-          value={segment}
-          onChange={(e) => setSegment(e.target.value)}
-          onKeyDown={onKeyDownSubmit}
-          className="w-full border rounded px-3 py-2"
-        >
-          <option value="">{lang === "en" ? "Select segment…" : "Välj segment…"}</option>
-          {SEG_OPTS.map((x) => (
-            <option key={x} value={x}>
-              {x}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Channel */}
-      <div className="mb-3">
-        <FieldLabel>Kanal (valfritt)</FieldLabel>
-        <select
-          value={channel}
-          onChange={(e) => setChannel(e.target.value)}
-          onKeyDown={onKeyDownSubmit}
-          className="w-full border rounded px-3 py-2"
-        >
-          <option value="">{lang === "en" ? "Select channel…" : "Välj kanal…"}</option>
-          {CHANNEL_OPTS.map((x) => (
-            <option key={x} value={x}>
-              {x}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Value line */}
-      <div className="mb-3">
-        <FieldLabel>Värderad rad (valfritt)</FieldLabel>
-        <input
-          type="text"
-          className="w-full border rounded px-3 py-2"
-          placeholder={
-            lang === "en"
-              ? "Example: reduce your electricity bill up to 30 percent per month"
-              : "Exempel: sänk din elräkning upp till 30 % per månad"
-          }
-          value={valueLine}
-          onChange={(e) => setValueLine(e.target.value)}
-          onKeyDown={onKeyDownSubmit}
-        />
-      </div>
-
-      {/* Address */}
-      <div className="mb-3">
-        <FieldLabel>Adress (valfritt)</FieldLabel>
-        <input
-          type="text"
-          className="w-full border rounded px-3 py-2"
-          placeholder={
-            lang === "en"
-              ? "Example: Södra Förstadsgatan 1, Malmö"
-              : "Exempel: Södra Förstadsgatan 1, Malmö"
-          }
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          onKeyDown={onKeyDownSubmit}
-        />
-      </div>
-
-      {/* Question */}
+      {/* Row 4: Question full width */}
       <div className="mb-2">
         <FieldLabel>Fråga / Signal</FieldLabel>
         <textarea
@@ -394,7 +396,7 @@ export default function QAPage() {
           type="button"
           onClick={onSubmit}
           disabled={submitting || !question.trim()}
-          className="px-4 py-2 rounded bg-slate-900 text-white disabled:opacity-50"
+          className="px-4 py-2 rounded bg-[var(--brand)] text-white disabled:opacity-50"
         >
           {lang === "en" ? "Get answer" : "Hämta svar"}
         </button>
