@@ -1,35 +1,29 @@
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextResponse, NextRequest } from 'next/server'
+import { supabaseFromRequest } from '@/lib/supabaseRoute'
 
-function s() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  return createClient(url, key, { auth: { persistSession: false } })
-}
-
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const supabase = s()
+    const { supabase } = supabaseFromRequest(req)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ items: [] })
 
-    // try a few possible table names
-    const candidates = [
-      { table: 'profiles', select: 'id,name' },
-      { table: 'sales_profiles', select: 'id,name' },
-      { table: 'reps', select: 'id,name' }
-    ]
+    const { data, error } = await supabase
+      .from('profiles_sales')
+      .select('id, name')
+      .eq('owner', user.id)
+      .order('created_at', { ascending: false })
 
-    for (const c of candidates) {
-      const { data, error } = await supabase.from(c.table).select(c.select).order('name', { ascending: true })
-      if (!error && Array.isArray(data)) {
-        return NextResponse.json({ items: data })
-      }
-    }
+    if (error) return NextResponse.json({ items: [] })
 
+    const items = (data ?? [])
+      .filter((r: any) => r && r.id)
+      .map((r: any) => ({ id: r.id, name: r.name || '(namnlös)' }))
+
+    return NextResponse.json({ items })
+  } catch {
     return NextResponse.json({ items: [] })
-  } catch (e: any) {
-    return NextResponse.json({ items: [], error: e?.message || 'profiles_failed' })
   }
 }

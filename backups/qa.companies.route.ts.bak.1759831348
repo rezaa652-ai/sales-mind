@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   try {
     const { supabase } = supabaseFromRequest(req)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ items: [] })
+    if (!user) return NextResponse.json({ items: [] }) // empty to keep UI stable
 
     const { data, error } = await supabase
       .from('company_profiles')
