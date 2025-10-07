@@ -1,9 +1,35 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, KeyboardEvent } from "react";
+import GeoElectricityInfo from "@/components/GeoElectricityInfo";
+import { GoogleMap, Marker, useLoadScript } from "@react-google-maps/api";
 
 type Item = { id: string; name: string };
 
+// ------- Geo types (same shape as /api/geo/pois) -------
+type Lang = "sv" | "en";
+type Poi = {
+  name: string;
+  type?: string;
+  distance_m?: number;
+  lat: number;
+  lon: number;
+  rating?: number;
+  address?: string;
+};
+type GeoResp = {
+  center?: { lat: number; lon: number };
+  address?: string;
+  radius_m?: number;
+  pois?: Poi[];
+  segment?: string;
+  plan?: string[];
+  hooks?: string[];
+  demographics?: { median_income?: string; families?: string; students?: string };
+  lang?: Lang;
+};
+
+// ---------- Little helpers ----------
 function StarRating({
   value,
   onChange,
@@ -138,7 +164,7 @@ export default function QAPage() {
   });
   const [rating, setRating] = useState(0);
 
-  // Load dropdown data
+  // Companies & profiles
   useEffect(() => {
     (async () => {
       try {
@@ -155,17 +181,59 @@ export default function QAPage() {
     })();
   }, []);
 
-  const onKeyDownSubmit = (e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const onKeyDownSubmit = (
+    e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       onSubmit();
     }
   };
 
+  // --------- NEW: geo state + map loader ----------
+  const [geo, setGeo] = useState<GeoResp | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState<string | undefined>(undefined);
+  const { isLoaded: mapLoaded } = useLoadScript({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+    libraries: ["places"],
+  });
+
+  async function fetchGeoIfAddress() {
+    if (!address.trim()) {
+      setGeo(null);
+      setGeoError(undefined);
+      return;
+    }
+    try {
+      setGeoLoading(true);
+      setGeoError(undefined);
+      setGeo(null);
+      const r = await fetch(
+        `/api/geo/pois?address=${encodeURIComponent(address)}&radius_m=600&lang=${lang}`,
+        { cache: "no-store" }
+      );
+      if (!r.ok) {
+        const tx = await r.text().catch(() => "");
+        throw new Error(tx || `HTTP ${r.status}`);
+      }
+      const json: GeoResp = await r.json();
+      setGeo(json);
+    } catch (e: any) {
+      setGeoError(e?.message || "geo_failed");
+    } finally {
+      setGeoLoading(false);
+    }
+  }
+
   async function onSubmit() {
     if (submitting) return;
     if (!question.trim()) return;
     setSubmitting(true);
+
+    // Kick off geo fetch in parallel (if address present)
+    const geoPromise = fetchGeoIfAddress();
+
     try {
       const res = await fetch("/api/qa/ask", {
         method: "POST",
@@ -206,6 +274,8 @@ export default function QAPage() {
       });
       setRating(0);
     } finally {
+      // Ensure geo finished too (even if ask failed)
+      await geoPromise.catch(() => {});
       setSubmitting(false);
     }
   }
@@ -219,6 +289,14 @@ export default function QAPage() {
   const FieldLabel = ({ children }: { children: React.ReactNode }) => (
     <div className="text-sm font-medium text-slate-700 mb-1">{children}</div>
   );
+
+  // ---- map helpers ----
+  const center = geo?.center ? { lat: geo.center.lat, lng: geo.center.lon } : undefined;
+  const hasPois = Array.isArray(geo?.pois) && (geo?.pois?.length || 0) > 0;
+  const greenIcon = {
+    url: "https://maps.gstatic.com/mapfiles/ms2/micons/green-dot.png",
+    scaledSize: { width: 32, height: 32 } as unknown as google.maps.Size,
+  };
 
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-6">
@@ -381,7 +459,6 @@ export default function QAPage() {
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           onKeyDown={(e) => {
-            // Enter submits, Shift+Enter = newline
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               onSubmit();
@@ -401,6 +478,82 @@ export default function QAPage() {
           {lang === "en" ? "Get answer" : "Hämta svar"}
         </button>
       </div>
+
+      {/* NEW: Geo panel (shows only when address searched) */}
+      {(address.trim() && (geo || geoLoading || geoError)) ? (
+        <div className="mb-6 grid md:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <div className="border rounded p-3 bg-slate-50">
+              <div className="text-sm text-slate-600">
+                {lang === "en" ? "Electricity info" : "El-info"}
+              </div>
+              <GeoElectricityInfo
+                address={address}
+                center={geo?.center ? { lat: geo.center.lat, lon: geo.center.lon } : undefined}
+              />
+            </div>
+
+            {geoError && (
+              <div className="text-red-600 text-sm">{geoError}</div>
+            )}
+
+            {Array.isArray(geo?.pois) && geo!.pois!.length > 0 && (
+              <div className="border rounded p-3 bg-slate-50">
+                <div className="text-sm text-slate-600">
+                  {lang === "en" ? "Nearby (businesses)" : "I närheten (företag)"}
+                </div>
+                <ul className="list-disc pl-5 text-sm">
+                  {geo!.pois!.slice(0, 10).map((p, i) => {
+                    const dist =
+                      typeof p.distance_m === "number"
+                        ? `${Math.round(p.distance_m)} m`
+                        : "";
+                    const rating =
+                      typeof p.rating === "number" ? ` • ★ ${p.rating}` : "";
+                    return (
+                      <li key={i}>
+                        <span className="font-medium">{p.name || "—"}</span>
+                        {p.type ? <> • {p.type}</> : null}
+                        {dist ? <> • {dist}</> : null}
+                        {rating ? <>{rating}</> : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="rounded-lg overflow-hidden border" style={{ height: 320 }}>
+              {mapLoaded && center ? (
+                <GoogleMap
+                  center={center}
+                  zoom={16}
+                  mapContainerStyle={{ width: "100%", height: "100%" }}
+                  options={{ streetViewControl: false, mapTypeControl: false }}
+                >
+                  <Marker position={center} icon={greenIcon} title={address} />
+                  {hasPois &&
+                    geo!.pois!.slice(0, 30).map((p, i) => (
+                      <Marker
+                        key={i}
+                        position={{ lat: p.lat, lng: p.lon }}
+                        title={p.name}
+                      />
+                    ))}
+                </GoogleMap>
+              ) : (
+                <div className="h-full grid place-items-center text-slate-500 bg-slate-50">
+                  {geoLoading
+                    ? (lang === "en" ? "Loading map…" : "Laddar karta…")
+                    : (lang === "en" ? "No map" : "Ingen karta")}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Answers */}
       {(oneLiner || why || ack || shortScript || fullScript || math || nextStep) && (
@@ -484,8 +637,10 @@ export default function QAPage() {
 
           {/* Overall rating */}
           <div className="border rounded p-3 bg-white">
-            <div className="font-medium mb-2">{lang === "en" ? "Rating (whole answer)" : "Betyg (hela svaret)"}</div>
-            <StarRating value={rating} onChange={setRating} onEnter={() => { /* hook save if desired */ }} />
+            <div className="font-medium mb-2">
+              {lang === "en" ? "Rating (whole answer)" : "Betyg (hela svaret)"}
+            </div>
+            <StarRating value={rating} onChange={setRating} onEnter={() => {}} />
           </div>
         </div>
       )}
