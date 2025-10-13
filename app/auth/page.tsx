@@ -1,96 +1,166 @@
-// app/auth/page.tsx
-'use client'
-
-import { useState } from 'react'
-import { supabaseBrowser } from '@/lib/supabaseBrowser'
-import { useRouter } from 'next/navigation'
-
-const AUTH_UI_VERSION = 'auth-v4-sync' // <-- syns på sidan, så du vet att rätt build körs
+"use client";
+import { useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 
 export default function AuthPage() {
-  const router = useRouter()
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [msg, setMsg] = useState<string>('')
+  // separate state per form
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
 
-  let supabase: ReturnType<typeof supabaseBrowser> | null = null
-  try {
-    supabase = supabaseBrowser()
-  } catch (e: any) {
-    return (
-      <div className="min-h-screen grid place-items-center p-6">
-        <div className="max-w-md w-full border rounded-xl p-6">
-          <h1 className="text-xl font-semibold mb-4">Konfigurationsfel</h1>
-          <p className="text-red-600">
-            {e?.message || 'Saknade miljövariabler för Supabase-klienten.'}
-          </p>
-        </div>
-      </div>
-    )
+  // separate pending flags
+  const [pendingLogin, setPendingLogin] = useState(false);
+  const [pendingSignup, setPendingSignup] = useState(false);
+
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  async function signInGoogle() {
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
   }
 
-  async function syncServerCookies() {
-    const { data } = await supabase!.auth.getSession()
-    const access_token = data.session?.access_token
-    const refresh_token = data.session?.refresh_token
-    console.log('[AUTH]', AUTH_UI_VERSION, 'sync start', Boolean(access_token), Boolean(refresh_token))
-    if (!access_token || !refresh_token) throw new Error('saknar session tokens')
-    const r = await fetch('/api/auth/sync', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ access_token, refresh_token }),
-    })
-    console.log('[AUTH] sync response', r.status)
-    if (!r.ok) {
-      const j = await r.json().catch(() => ({}))
-      throw new Error(j?.error || `sync failed ${r.status}`)
+  async function doLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    setPendingLogin(true);
+    try {
+      const r = await fetch("/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Login failed");
+      window.location.assign(j.redirect || "/app/qa");
+    } catch (err: any) {
+      setMsg(err.message || "Login failed");
+    } finally {
+      setPendingLogin(false);
     }
   }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault()
-    setMsg('')
-    setLoading(true)
+  async function doSignup(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    setPendingSignup(true);
     try {
-      if (mode === 'login') {
-        const { error } = await supabase!.auth.signInWithPassword({ email, password })
-        if (error) throw error
-      } else {
-        const { error } = await supabase!.auth.signUp({ email, password })
-        if (error) throw error
-      }
-      // VIKTIGT: synka tokens till server-cookies
-      await syncServerCookies()
-      router.push('/app/qa' as any)
+      const r = await fetch("/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: signupEmail, password: signupPassword }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Signup failed");
+      setMsg(
+        j.needsEmailConfirm
+          ? "Check your email to confirm your account."
+          : "Signed up! Redirecting…"
+      );
+      if (!j.needsEmailConfirm) window.location.assign("/app/qa");
     } catch (err: any) {
-      setMsg(err?.message || String(err))
-      console.error('Auth error:', err)
+      setMsg(err.message || "Signup failed");
     } finally {
-      setLoading(false)
+      setPendingSignup(false);
     }
   }
 
   return (
-    <div className="min-h-screen grid place-items-center p-6">
-      <form onSubmit={submit} className="w-full max-w-sm border rounded-xl p-6">
-        <h1 className="text-xl font-semibold mb-1">{mode === 'login' ? 'Logga in' : 'Skapa konto'}</h1>
-        <p className="text-xs text-slate-500 mb-4">UI: {AUTH_UI_VERSION}</p>
-        <label className="block text-sm mb-2">E-post
-          <input className="w-full border rounded p-2" type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email" />
-        </label>
-        <label className="block text-sm mb-4">Lösenord
-          <input className="w-full border rounded p-2" type="password" value={password} onChange={e=>setPassword(e.target.value)} required autoComplete={mode==='login'?'current-password':'new-password'} />
-        </label>
-        {msg && <p className="text-red-600 text-sm mb-3">{msg}</p>}
-        <button className="w-full bg-[var(--brand)] text-white rounded p-2 disabled:opacity-60" disabled={loading}>
-          {loading ? 'Arbetar…' : mode === 'login' ? 'Logga in' : 'Skapa konto'}
-        </button>
-        <button type="button" className="w-full mt-2 underline" onClick={()=>setMode(mode==='login'?'signup':'login')}>
-          {mode==='login'?'Skapa nytt konto':'Har konto? Logga in'}
+    <div className="max-w-sm mx-auto p-6 space-y-6">
+      <h1 className="text-2xl font-semibold">Welcome</h1>
+
+      {/* LOGIN */}
+      <form className="space-y-3" onSubmit={doLogin} autoComplete="on" aria-busy={pendingLogin}>
+        <h2 className="font-medium">Sign in with email</h2>
+        <input
+          id="login-email"
+          name="login-email"
+          type="email"
+          inputMode="email"
+          placeholder="Email"
+          className="w-full border rounded px-3 py-2"
+          value={loginEmail}
+          onChange={(e) => setLoginEmail(e.target.value)}
+          required
+          autoComplete="username"
+        />
+        <input
+          id="login-password"
+          name="login-password"
+          type="password"
+          placeholder="Password"
+          className="w-full border rounded px-3 py-2"
+          value={loginPassword}
+          onChange={(e) => setLoginPassword(e.target.value)}
+          required
+          autoComplete="current-password"
+        />
+        <button
+          type="submit"
+          disabled={pendingLogin}
+          className="w-full rounded bg-black text-white py-2 disabled:opacity-60"
+          aria-disabled={pendingLogin}
+        >
+          {pendingLogin ? "Signing in…" : "Sign in"}
         </button>
       </form>
+
+      <div className="text-center text-sm text-slate-500">or</div>
+
+      {/* SIGNUP */}
+      <form className="space-y-3" onSubmit={doSignup} autoComplete="on" aria-busy={pendingSignup}>
+        <h2 className="font-medium">Create an account</h2>
+        <input
+          id="signup-email"
+          name="signup-email"
+          type="email"
+          inputMode="email"
+          placeholder="Email"
+          className="w-full border rounded px-3 py-2"
+          value={signupEmail}
+          onChange={(e) => setSignupEmail(e.target.value)}
+          required
+          autoComplete="email"
+        />
+        <input
+          id="signup-password"
+          name="signup-password"
+          type="password"
+          placeholder="Create a password"
+          className="w-full border rounded px-3 py-2"
+          value={signupPassword}
+          onChange={(e) => setSignupPassword(e.target.value)}
+          required
+          autoComplete="new-password"
+          minLength={6}
+        />
+        <button
+          type="submit"
+          disabled={pendingSignup}
+          className="w-full rounded bg-slate-900 text-white py-2 disabled:opacity-60"
+          aria-disabled={pendingSignup}
+        >
+          {pendingSignup ? "Creating account…" : "Create account"}
+        </button>
+      </form>
+
+      <button
+        onClick={signInGoogle}
+        className="w-full rounded border py-2"
+        aria-label="Continue with Google"
+        type="button"
+      >
+        Continue with Google
+      </button>
+
+      {msg && <p className="text-sm text-red-600">{msg}</p>}
     </div>
-  )
+  );
 }
