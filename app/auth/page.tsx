@@ -23,11 +23,15 @@ export default function AuthPage() {
   );
 
   async function signInGoogle() {
-    await supabase.auth.signInWithOAuth({
-      // If you add Google via OIDC use "google-oidc"; otherwise keep "google" when native is available
-      provider: "google-oidc",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
+    // TS note: some supabase-js versions do not include "oidc" in Provider type.
+    // We cast to any to support custom OIDC provider slugs.
+    await (supabase.auth as any).signInWithOAuth({
+      provider: "oidc",
+      options: {
+        provider: "google-oidc", // must match your Supabase OIDC Provider ID
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    } as any);
   }
 
   async function doLogin(e: React.FormEvent) {
