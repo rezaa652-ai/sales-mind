@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
+const ENABLE_GOOGLE = process.env.NEXT_PUBLIC_ENABLE_GOOGLE_OIDC === "1";
+
 export default function AuthPage() {
   // separate state per form
   const [loginEmail, setLoginEmail] = useState("");
@@ -22,7 +24,8 @@ export default function AuthPage() {
 
   async function signInGoogle() {
     await supabase.auth.signInWithOAuth({
-      provider: "google",
+      // If you add Google via OIDC use "google-oidc"; otherwise keep "google" when native is available
+      provider: "google-oidc",
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
   }
@@ -151,14 +154,17 @@ export default function AuthPage() {
         </button>
       </form>
 
-      <button
-        onClick={signInGoogle}
-        className="w-full rounded border py-2"
-        aria-label="Continue with Google"
-        type="button"
-      >
-        Continue with Google
-      </button>
+      {/* GOOGLE (hidden unless flag=1) */}
+      {ENABLE_GOOGLE && (
+        <button
+          onClick={signInGoogle}
+          className="w-full rounded border py-2"
+          aria-label="Continue with Google"
+          type="button"
+        >
+          Continue with Google
+        </button>
+      )}
 
       {msg && <p className="text-sm text-red-600">{msg}</p>}
     </div>
