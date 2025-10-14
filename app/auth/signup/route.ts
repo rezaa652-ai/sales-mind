@@ -1,40 +1,49 @@
+// app/auth/signup/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
-export async function POST(req: NextRequest) {
-  const { email, password } = await req.json().catch(() => ({}));
-  if (!email || !password) {
-    return NextResponse.json({ error: "missing email or password" }, { status: 400 });
-  }
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
+function makeClient(req: NextRequest, res: NextResponse) {
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: cookieStore }
+    {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll();
+        },
+        setAll(cookies) {
+          cookies.forEach(({ name, value, options }) => {
+            res.cookies.set(name, value, options as CookieOptions);
+          });
+        },
+      },
+    }
   );
+}
 
-  const origin = new URL(req.url).origin;
+export async function POST(req: NextRequest) {
+  const res = NextResponse.redirect(new URL("/app/qa", req.url), 303);
+  try {
+    const form = await req.formData();
+    const email = form.get("email")?.toString() || "";
+    const password = form.get("password")?.toString() || "";
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    // If "Email confirmations" are ON in Supabase, a confirm link will be sent.
-    // After clicking it, Supabase will redirect to your callback (below).
-    options: { emailRedirectTo: `${origin}/auth/callback` },
-  });
+    if (!email || !password) {
+      return NextResponse.json({ error: "missing_credentials" }, { status: 400 });
+    }
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    const supabase = makeClient(req, res);
+    const { error } = await supabase.auth.signUp({ email, password });
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    return res;
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "signup_failed" }, { status: 400 });
   }
-
-  // If confirmations are OFF, user is already signed in and cookies are set.
-  // If confirmations are ON, tell the client to check their inbox.
-  const needsEmailConfirm = !!data.user && !data.session;
-  return NextResponse.json({
-    ok: true,
-    needsEmailConfirm,
-    message: needsEmailConfirm ? "Check your email to confirm your account." : "Signed up.",
-  });
 }
