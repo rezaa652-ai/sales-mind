@@ -18,6 +18,8 @@ export default function EventsPage(){
   const [rows, setRows] = useState<EventItem[]>([])
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<EventItem | null>(null)
   const [form, setForm] = useState<EventItem>({
     ts: new Date().toISOString().slice(0,16),
@@ -28,14 +30,28 @@ export default function EventsPage(){
   })
 
   useEffect(()=>{ setLang(getLang()) },[])
-  useEffect(()=>{
-    ;(async()=>{
-      const r = await fetch('/api/events')
-      const data = await r.json()
-      setRows(data)
-    })()
-  },[])
-  useEffect(()=>{ document.body.style.overflow = open ? 'hidden' : '' },[open])
+
+  async function load(){
+    setLoading(true)
+    setError(null)
+    try{
+      const r = await fetch('/api/events', { headers: { accept: 'application/json' } })
+      if (r.status === 401) { window.location.assign('/auth'); return }
+      if (!r.ok) { throw new Error(await r.text().catch(()=>`HTTP ${r.status}`)) }
+      const data = await r.json().catch(()=>[])
+      setRows(Array.isArray(data) ? data : [])
+    }catch(e){
+      console.error('Load events failed:', e)
+      setRows([])
+      setError(t(lang,'common.error'))
+    }finally{
+      setLoading(false)
+    }
+  }
+
+  useEffect(()=>{ load() /* on mount */ },[]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(()=>{ document.body.style.overflow = open ? 'hidden' : '' ; return ()=>{ document.body.style.overflow = '' } },[open])
 
   function openNew(){
     setEditing(null)
@@ -64,19 +80,37 @@ export default function EventsPage(){
   async function save(){
     if (saving) return
     setSaving(true)
-    const method = editing?.id ? 'PUT' : 'POST'
-    const url = editing?.id ? `/api/events/${editing.id}` : '/api/events'
-    const r = await fetch(url, { method, body: JSON.stringify(form) })
-    setSaving(false)
-    if (!r.ok) return alert(t(lang,'common.error'))
-    setOpen(false); setEditing(null)
-    const rr = await fetch('/api/events')
-    setRows(await rr.json())
+    try{
+      const method = editing?.id ? 'PUT' : 'POST'
+      const url = editing?.id ? `/api/events/${editing.id}` : '/api/events'
+      const r = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify(form)
+      })
+      if (r.status === 401) { window.location.assign('/auth'); return }
+      if (!r.ok) { throw new Error(await r.text().catch(()=>`HTTP ${r.status}`)) }
+      setOpen(false); setEditing(null)
+      await load()
+    }catch(e){
+      console.error('Save event failed:', e)
+      alert(t(lang,'common.error'))
+    }finally{
+      setSaving(false)
+    }
   }
-  async function del(id: string){
-    const r = await fetch(`/api/events/${id}`, { method: 'DELETE' })
-    if (r.ok) setRows(rows.filter(x=>x.id!==id))
-    else alert(t(lang,'common.error'))
+
+  async function del(id?: string){
+    if (!id) return
+    try{
+      const r = await fetch(`/api/events/${id}`, { method: 'DELETE', headers: { accept: 'application/json' } })
+      if (r.status === 401) { window.location.assign('/auth'); return }
+      if (!r.ok) { throw new Error(await r.text().catch(()=>`HTTP ${r.status}`)) }
+      setRows(prev => prev.filter(x=>x.id!==id))
+    }catch(e){
+      console.error('Delete event failed:', e)
+      alert(t(lang,'common.error'))
+    }
   }
 
   return (
@@ -88,7 +122,9 @@ export default function EventsPage(){
         </button>
       </div>
 
-      {rows.length===0 && <div className="text-slate-500">{t(lang,'events.list.empty')}</div>}
+      {loading && <div className="text-slate-500">{t(lang,'common.loading')}</div>}
+      {!loading && error && <div className="text-red-600 text-sm">{error}</div>}
+      {!loading && !error && rows.length===0 && <div className="text-slate-500">{t(lang,'events.list.empty')}</div>}
 
       <div className="border rounded overflow-x-auto">
         <table className="w-full text-sm">
@@ -112,7 +148,7 @@ export default function EventsPage(){
                 <td className="p-2">{e.tags||'—'}</td>
                 <td className="p-2 text-right whitespace-nowrap">
                   <button className="mr-2 underline" onClick={()=>openEdit(e)}>{t(lang,'common.edit')}</button>
-                  <ConfirmDialog onConfirm={()=>del(e.id!)}>
+                  <ConfirmDialog onConfirm={()=>del(e.id)}>
                     <button className="text-red-600 underline">{t(lang,'common.delete')}</button>
                   </ConfirmDialog>
                 </td>

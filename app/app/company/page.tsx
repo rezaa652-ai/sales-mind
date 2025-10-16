@@ -19,6 +19,8 @@ export default function CompanyPage() {
   const [items, setItems] = useState<Company[]>([])
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Company | null>(null)
   const [form, setForm] = useState<Company>({
     company_name: '',
@@ -31,37 +33,87 @@ export default function CompanyPage() {
 
   useEffect(() => { setLang(getLang()) }, [])
 
+  async function fetchCompanies() {
+    setLoading(true)
+    setError(null)
+    try {
+      const r = await fetch('/api/company', { headers: { accept: 'application/json' } })
+      if (r.status === 401) {
+        // not authenticated (avoid crashing on .json())
+        window.location.assign('/auth')
+        return
+      }
+      if (!r.ok) {
+        const text = await r.text().catch(() => '')
+        throw new Error(text || `HTTP ${r.status}`)
+      }
+      const data = await r.json().catch(() => [])
+      setItems(Array.isArray(data) ? data : [])
+    } catch (e: any) {
+      console.error('Load companies failed:', e)
+      setError(t(lang, 'common.error'))
+      setItems([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    ;(async () => {
-      const r = await fetch('/api/company')
-      setItems(await r.json())
-    })()
+    fetchCompanies()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     // lock background scroll while modal open
     document.body.style.overflow = open ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
   }, [open])
 
   async function save() {
     if (saving) return
     setSaving(true)
-    const method = editing?.id ? 'PUT' : 'POST'
-    const url = editing?.id ? `/api/company/${editing.id}` : '/api/company'
-    const r = await fetch(url, { method, body: JSON.stringify(form) })
-    setSaving(false)
-    if (!r.ok) return alert(t(lang, 'common.error'))
-    setOpen(false)
-    setEditing(null)
-    const rr = await fetch('/api/company')
-    setItems(await rr.json())
+    try {
+      const method = editing?.id ? 'PUT' : 'POST'
+      const url = editing?.id ? `/api/company/${editing.id}` : '/api/company'
+      const r = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (r.status === 401) {
+        window.location.assign('/auth')
+        return
+      }
+      if (!r.ok) {
+        const text = await r.text().catch(() => '')
+        throw new Error(text || `HTTP ${r.status}`)
+      }
+      setOpen(false)
+      setEditing(null)
+      await fetchCompanies()
+    } catch (e) {
+      console.error('Save company failed:', e)
+      alert(t(lang, 'common.error'))
+    } finally {
+      setSaving(false)
+    }
   }
 
-  async function del(id: string) {
-    const r = await fetch(`/api/company/${id}`, { method: 'DELETE' })
-    if (r.ok) {
-      setItems(items.filter(i => i.id !== id))
-    } else {
+  async function del(id?: string) {
+    if (!id) return
+    try {
+      const r = await fetch(`/api/company/${id}`, { method: 'DELETE', headers: { accept: 'application/json' } })
+      if (r.status === 401) {
+        window.location.assign('/auth')
+        return
+      }
+      if (!r.ok) {
+        const text = await r.text().catch(() => '')
+        throw new Error(text || `HTTP ${r.status}`)
+      }
+      setItems(prev => prev.filter(i => i.id !== id))
+    } catch (e) {
+      console.error('Delete company failed:', e)
       alert(t(lang, 'common.error'))
     }
   }
@@ -105,7 +157,9 @@ export default function CompanyPage() {
         </button>
       </div>
 
-      {items.length === 0 && (
+      {loading && <div className="text-slate-500">{t(lang,'common.loading')}</div>}
+      {!loading && error && <div className="text-red-600 text-sm">{error}</div>}
+      {!loading && !error && items.length === 0 && (
         <div className="text-slate-500">{t(lang,'company.list.empty')}</div>
       )}
 
@@ -116,7 +170,7 @@ export default function CompanyPage() {
               <div className="font-semibold">{c.company_name || '—'}</div>
               <div className="flex items-center gap-3">
                 <button className="underline" onClick={() => openEdit(c)}>{t(lang,'company.edit')}</button>
-                <ConfirmDialog onConfirm={() => del(c.id!)}>
+                <ConfirmDialog onConfirm={() => del(c.id)}>
                   <button className="text-red-600 underline">{t(lang,'common.delete')}</button>
                 </ConfirmDialog>
               </div>
