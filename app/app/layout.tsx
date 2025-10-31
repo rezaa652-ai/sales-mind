@@ -7,7 +7,6 @@ import { supabaseServer } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 export const runtime = 'nodejs'
-export const runtime = "nodejs";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const supabase = await supabaseServer();
