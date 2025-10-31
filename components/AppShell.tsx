@@ -13,12 +13,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
 const links = [
   { href: '/app/qa',       label: t(lang, 'nav.qa') },
+    { href: '/app/upload', label: 'Upload' },
   { href: '/app/profiles', label: t(lang, 'nav.profiles') },
   { href: '/app/company',  label: t(lang, 'nav.company') },
   { href: '/app/kb',       label: t(lang, 'nav.kb') },
   { href: '/app/events',   label: t(lang, 'nav.events') },
   { href: '/app/geo',      label: t(lang, 'nav.geo') },
-  { href: '/app/upload',   label: 'Upload' },
   { href: '/app/settings', label: t(lang, 'nav.settings') },
 ]
 
