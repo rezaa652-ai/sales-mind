@@ -3,16 +3,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-
-// tiny cn helper (no external imports needed)
-function cn(...c: Array<string | false | null | undefined>) {
-  return c.filter(Boolean).join(' ')
-}
+import { cn } from '@/lib/utils' // if you already use a helper for conditional classNames
 
 const nav = [
   { href: '/app/qa', label: 'Q&A' },
+    { href: '/app/upload', label: 'Upload' },
+    { href: '/app/upload', label: 'Upload' },
+  // 🆕 new Upload link (right after Q&A)
   { href: '/app/upload', label: 'Upload' },
-  { href: '/app/geo', label: 'Geo' },
   { href: '/app/company', label: 'Company' },
   { href: '/app/profiles', label: 'Profiles' },
   { href: '/app/events', label: 'Events' },
@@ -30,7 +28,9 @@ export default function AppNav() {
           href={item.href}
           className={cn(
             'rounded px-3 py-2 hover:bg-slate-100 transition',
-            pathname.startsWith(item.href) && 'font-medium'
+            pathname.startsWith(item.href)
+              ? 'bg-[var(--brand-light)] text-[var(--brand-dark)] font-medium'
+              : 'text-slate-700'
           )}
         >
           {item.label}

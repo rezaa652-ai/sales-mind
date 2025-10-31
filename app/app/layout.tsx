@@ -1,3 +1,5 @@
+export const runtime = 'nodejs'
+import AppNav from '@/components/AppNav'
 // app/app/layout.tsx
 import { ReactNode } from "react";
 import { redirect } from "next/navigation";
