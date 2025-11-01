@@ -21,4 +21,3 @@ create table if not exists public.call_chunks (
 );
 
 create index if not exists call_chunks_call_id_idx on public.call_chunks(call_id);
-
