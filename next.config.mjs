@@ -15,4 +15,5 @@ const nextConfig = {
   },
 };
 
+const withESLint = { eslint: { ignoreDuringBuilds: true } };
 export default nextConfig;

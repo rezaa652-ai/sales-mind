@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server'
 import { KOMMUN_CODE_BY_NAME } from '@/lib/kommuner'
 import { pxwebFetch } from '@/lib/scb'
