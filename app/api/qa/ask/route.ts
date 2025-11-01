@@ -3,6 +3,8 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+import type { KBItem, CallSearchRow, QAJson } from '@/types/qa'
+import type { KBItem, CallSearchRow, QAJson } from '@/types/qa'
 import { supabaseFromRequest } from '@/lib/supabaseRoute'
 import { createClient } from '@supabase/supabase-js'
 
@@ -21,9 +23,9 @@ type AskBody = {
   question: string
 }
 
-function normalize(o: any) {
-  const clip = (x:any,n:number)=>String(x??'').trim().slice(0,n)
-  const two=(s:any)=>String(s??'').trim().split(/(?<=[.!?])\s+/).slice(0,2).join(' ').slice(0,500)
+function normalize(o: Partial<QAJson>) {
+  const clip = (x: unknown,n:number)=>String(x??'').trim().slice(0,n)
+  const two=(s: unknown)=>String(s??'').trim().split(/(?<=[.!?])\s+/).slice(0,2).join(' ').slice(0,500)
   return {
     one_liner:   clip(o?.one_liner, 180),
     why:         clip(typeof o?.why === 'object'
@@ -47,11 +49,12 @@ function s() {
 }
 
 async function fetchById(supabase: ReturnType<typeof s>, id: string, tables: string[]) {
+
   for (const t of tables) {
     const { data } = await supabase.from(t).select('*').eq('id', id).maybeSingle()
     if (data) return { table: t, data }
   }
-  return { table:'', data:null as any }
+  return { table: '', data: null }
 }
 
 async function fetchKBContext(supabase: ReturnType<typeof s>, companyId?: string, profileId?: string, question?: string) {
@@ -60,10 +63,10 @@ async function fetchKBContext(supabase: ReturnType<typeof s>, companyId?: string
     let q = supabase.from(t).select('question,one_liner,short_script,full_script,why').order('created_at',{ascending:false}).limit(12)
     if (companyId) q = q.eq('company_id', companyId)
     if (profileId) q = q.eq('profile_id', profileId)
-    const { data } = await q
+    const { data } = await q as unknown as { data: KBItem[] }
     if (Array.isArray(data) && data.length) {
       const sig = (question||'').toLowerCase().split(/\W+/).filter(Boolean)
-      const score = (row:any)=>{ const toks=String(row.question||'').toLowerCase().split(/\W+/); const set=new Set(toks); let s=0; for(const w of sig) if(set.has(w)) s++; return s }
+      const score = (row: CallSearchRow)=>{ const toks=String(row.question||'').toLowerCase().split(/\W+/); const set=new Set(toks); let s=0; for(const w of sig) if(set.has(w)) s++; return s }
       const top = [...data].sort((a,b)=>score(b)-score(a)).slice(0,3)
       return top.map(r=>{
         const brief = r.one_liner || r.short_script || r.full_script || r.why || ''
@@ -101,12 +104,12 @@ export async function POST(req: NextRequest) {
 
     // anon supabase for cross-table lookups (as before)
     const anon = s()
-    let company: any = null
+    let company: unknown = null
     if (body.companyId) {
       const c = await fetchById(anon, body.companyId, ['companies','company','organizations'])
       company = c.data
     }
-    let profile: any = null
+    let profile: unknown = null
     if (body.profileId) {
       const p = await fetchById(anon, body.profileId, ['profiles','sales_profiles','reps'])
       profile = p.data
@@ -144,7 +147,7 @@ export async function POST(req: NextRequest) {
         p_match_count: 5
       })
       if (!error && Array.isArray(rows)) {
-        callSnippets = rows.map((r:any)=> r.content).slice(0,5)
+        callSnippets = rows.map((r: unknown)=> r.content).slice(0,5)
       }
     } catch (e) {
       console.warn('call_search_failed', (e as any)?.message)
@@ -193,13 +196,13 @@ export async function POST(req: NextRequest) {
     const raw = await resp.json().catch(()=> ({}))
     if (!resp.ok) return NextResponse.json({ error: 'openai_failed', detail: raw }, { status: 502 })
 
-    let obj:any; try{ obj = JSON.parse(raw?.choices?.[0]?.message?.content || '{}') } catch { obj = {} }
+    let obj: Partial<QAJson>; try{ obj = JSON.parse(raw?.choices?.[0]?.message?.content || '{}') } catch { obj = {} }
     const out = normalize(obj)
 
     // (Optional) log event as before — re-add your insert here if needed.
 
     return NextResponse.json({ ok:true, ...out })
-  } catch (e:any) {
+  } catch (e: unknown) {
     return NextResponse.json({ error: 'ask_route_error', detail: e?.message || String(e) }, { status: 500 })
   }
 }
