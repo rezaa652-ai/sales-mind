@@ -1,0 +1,42 @@
+// app/(site)/sections/HeroSection.tsx
+'use client';
+
+export default function HeroSection() {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const heroSrc = base + '/storage/v1/object/public/site/hero.jpg';
+
+  return (
+    <section className="max-w-6xl mx-auto px-4 py-16 grid md:grid-cols-2 items-center gap-8">
+      <div className="text-center md:text-left">
+        <h1 className="text-3xl md:text-5xl font-bold mb-2">
+          SalesMind - AI Sales Coach for Real-Time Objection Handling
+        </h1>
+        <h2 className="text-xl mb-4">Turn every sales call into a sale.</h2>
+
+        {/* Mobile-only image between subtitle and paragraph */}
+        <div className="block md:hidden mb-4">
+          <img
+            src={heroSrc}
+            alt="SalesMind AI Coach"
+            className="rounded-2xl w-full object-contain"
+          />
+        </div>
+
+        <p className="text-lg text-gray-700">
+          SalesMind helps sales reps handle objections in real time and build trust with prospects,
+          using conversational AI and personal data insights — boosting confidence, connection,
+          and closing rates.
+        </p>
+      </div>
+
+      {/* Desktop-only image on the right */}
+      <div className="hidden md:block">
+        <img
+          src={heroSrc}
+          alt="SalesMind AI Coach"
+          className="rounded-2xl w-full object-contain"
+        />
+      </div>
+    </section>
+  );
+}

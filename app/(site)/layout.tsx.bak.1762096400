@@ -1,5 +1,4 @@
 // app/(site)/layout.tsx
-import './site.css'
 import MobileMenu from '@/components/MobileMenu'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
@@ -11,7 +10,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen flex flex-col">
       <header className="max-w-6xl w-full mx-auto px-4 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         {/* Logo */}
-        <div className="flex items-center justify-center md:justify-center md:justify-start">
+        <div className="flex items-center justify-center md:justify-start">
           <Link href="/" className="flex items-center">
             <img
               src={logo || '/placeholder.svg'}
@@ -22,7 +21,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
         </div>
 
         {/* Navigation (stacks on mobile, inline on desktop) */}
-        <nav className="hidden md:flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4 text-sm">
+        <nav className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4 text-sm">
           <Link href="/features">Features</Link>
           <Link href="/pricing">Pricing</Link>
           <Link href="/contact">Contact</Link>
@@ -31,7 +30,6 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
         </nav>
         <MobileMenu />
 </header>
-
 
       <main className="flex-1">{children}</main>
 

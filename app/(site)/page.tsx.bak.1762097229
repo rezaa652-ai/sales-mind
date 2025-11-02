@@ -44,8 +44,6 @@ export default function HomePage() {
           <div className="flex flex-col md:flex-row items-center gap-10">
             <div className="md:w-1/2 space-y-4">
               <h2 className="text-2xl md:text-3xl font-semibold">🎯 Built for Sales Reps Who Want to Win Every Call</h2>
-        <div className="block md:hidden mb-4">
-          </div>
               <p className="text-slate-700">
                 <strong>Tired of freezing mid-call?</strong> SalesMind gives you the right words and insights exactly when you need them — so you can handle any objection confidently.
               </p>

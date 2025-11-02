@@ -1,23 +1,21 @@
-'use client'
-import Image from 'next/image'
-import { siteImageUrl } from '@/lib/siteImages'
+'use client';
+import Image from 'next/image';
+import { siteImageUrl } from '@/lib/siteImages';
 
 type Props = {
-  src: string            // path inside "site" bucket, e.g. "hero.jpg" or "features/one.png"
-  alt: string
-  className?: string
-  priority?: boolean
-}
+  src: string;
+  alt: string;
+  className?: string;
+  priority?: boolean;
+};
 
 /**
- * Responsive <Image/> that:
- * - fills its container width
- * - uses sizes hint so Next.js serves the right size for mobile/desktop
+ * Mobile + Desktop: 100% width (full width)
  */
-export default function SiteImage({ src, alt, className, priority }: Props) {
-  const url = siteImageUrl(src)
+export default function SiteImage({ src, alt, className = '', priority }: Props) {
+  const url = siteImageUrl(src);
   return (
-    <div className={className}>
+    <div className={`w-full mx-auto rounded-2xl ${className}`}>
       <Image
         src={url || '/placeholder.svg'}
         alt={alt}
@@ -25,8 +23,9 @@ export default function SiteImage({ src, alt, className, priority }: Props) {
         height={900}
         priority={priority}
         style={{ width: '100%', height: 'auto' }}
-        sizes="(max-width: 768px) 100vw, 50vw"
+        className="object-contain rounded-2xl"
+        sizes="100vw"
       />
     </div>
-  )
+  );
 }
