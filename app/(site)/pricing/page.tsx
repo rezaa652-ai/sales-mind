@@ -1,9 +1,15 @@
+import HIcon from '@/components/HIcon'
+import { DollarSign } from 'lucide-react'
+
 export const dynamic = 'force-dynamic'
 
-export default function PricingPage(){
+export default function PricingPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-12 md:py-16">
-      <h1 className="text-3xl md:text-4xl font-bold mb-6">Pricing</h1>
+      <h1 className="text-3xl md:text-5xl font-bold mb-6">
+        <HIcon><DollarSign className="h-8 w-8 text-black" /></HIcon>
+        Pricing
+      </h1>
 
       <div className="overflow-x-auto border rounded">
         <table className="w-full text-left text-sm">
