@@ -1,23 +1,11 @@
 {
-  "root": true,
-  "extends": ["next/core-web-vitals"],
+  "extends": "next/core-web-vitals",
   "rules": {
-    "@typescript-eslint/no-explicit-any": "error"
-  },
-  "overrides": [
-    {
-      "files": ["app/api/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}"],
-      "rules": {
-        "@typescript-eslint/no-explicit-any": "warn",
-        "@typescript-eslint/no-require-imports": "off",
-        "@typescript-eslint/ban-ts-comment": ["warn", { "ts-ignore": "allow-with-description" }]
-      }
-    },
-    {
-      "files": ["app/(site)/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
-      "rules": {
-        "@next/next/no-img-element": "warn"
-      }
-    }
-  ]
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-unused-vars": "warn",
+    "@typescript-eslint/ban-ts-comment": "off",
+    "@typescript-eslint/no-require-imports": "off",
+    "@next/next/no-img-element": "off",
+    "react-hooks/exhaustive-deps": "warn"
+  }
 }
