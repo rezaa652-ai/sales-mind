@@ -2,7 +2,7 @@
 import { supabaseServer } from '@/lib/supabaseServer'
 
 export default async function DebugAuthPage(){
-  const supabase = await supabaseServer()
+  const supabase = supabaseServer
   const { data: { user }, error } = await supabase.auth.getUser()
   return (
     <pre className="p-4 text-sm">

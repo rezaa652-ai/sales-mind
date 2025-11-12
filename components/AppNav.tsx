@@ -1,3 +1,4 @@
+cat > components/AppNav.tsx <<'TS'
 // components/AppNav.tsx
 'use client'
 
@@ -12,6 +13,7 @@ function cn(...c: Array<string | false | null | undefined>) {
 const nav = [
   { href: '/app/qa', label: 'Q&A' },
   { href: '/app/upload', label: 'Upload' },
+  { href: '/app/simulations', label: 'Simulations' },   // 👈 Added this line
   { href: '/app/geo', label: 'Geo' },
   { href: '/app/company', label: 'Company' },
   { href: '/app/profiles', label: 'Profiles' },
@@ -30,7 +32,7 @@ export default function AppNav() {
           href={item.href}
           className={cn(
             'rounded px-3 py-2 hover:bg-slate-100 transition',
-            pathname.startsWith(item.href) && 'font-medium'
+            pathname.startsWith(item.href) && 'font-medium bg-slate-100'
           )}
         >
           {item.label}
