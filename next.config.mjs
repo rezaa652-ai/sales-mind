@@ -1,15 +1,9 @@
-/** @type {import('next').NextConfig} */
+import path from "path";
+
 const nextConfig = {
-  eslint: { ignoreDuringBuilds: true },
-  typescript: { ignoreBuildErrors: true },
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'scnypfijjepslmavbfkz.supabase.co',
-        pathname: '/storage/v1/object/public/**',
-      },
-    ],
+  webpack: (config) => {
+    config.resolve.alias["@"] = path.resolve(".");
+    return config;
   },
 };
 
