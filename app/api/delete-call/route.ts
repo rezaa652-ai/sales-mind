@@ -1,27 +1,42 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.SUPABASE_URL ||
+  "https://dummy-project.supabase.co";
 
-export async function POST(req: Request) {
+const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  "dummy_supabase_key";
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+export async function DELETE(req: Request) {
   try {
-    const { id, file_path } = await req.json();
-    if (!id || !file_path) throw new Error("Missing id or file_path");
+    const { id } = await req.json();
 
-    // 1️⃣ Delete file from storage
-    const { error: storageError } = await supabase.storage.from("calls").remove([file_path]);
-    if (storageError) console.warn("Storage delete error:", storageError);
+    if (!id) {
+      return NextResponse.json({ error: "Missing call ID" }, { status: 400 });
+    }
 
-    // 2️⃣ Delete record from table
-    const { error: dbError } = await supabase.from("calls").delete().eq("id", id);
-    if (dbError) throw dbError;
+    const { error } = await supabase.from("calls").delete().eq("id", id);
+
+    if (error) {
+      return NextResponse.json(
+        { error: "Delete failed", detail: error.message },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    console.error("DELETE ERROR:", err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  } catch (e: any) {
+    console.error("Delete call error:", e);
+    return NextResponse.json(
+      { error: "delete_call_failed", detail: e?.message || String(e) },
+      { status: 500 }
+    );
   }
 }
