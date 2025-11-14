@@ -1,3 +1,11 @@
+
+declare global {
+  interface Window {
+    SpeechRecognition: any
+    webkitSpeechRecognition: any
+  }
+}
+
 "use client";
 import { useState } from "react";
 import AnalyticsSummary from "./AnalyticsSummary";
@@ -53,7 +61,7 @@ export default function VoiceSimMVP({ personaId }: { personaId: string }) {
           </button>
         </>
       ) : (
-        <AnalyticsSummary report={report} />
+       <AnalyticsSummary summary={report} />
       )}
     </div>
   );

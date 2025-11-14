@@ -1,5 +1,3 @@
-cat > components/AppNav.tsx <<'TS'
-// components/AppNav.tsx
 'use client'
 
 import Link from 'next/link'
@@ -13,7 +11,7 @@ function cn(...c: Array<string | false | null | undefined>) {
 const nav = [
   { href: '/app/qa', label: 'Q&A' },
   { href: '/app/upload', label: 'Upload' },
-  { href: '/app/simulations', label: 'Simulations' },   // 👈 Added this line
+  { href: '/app/simulations', label: 'Simulations' }, // 👈 Added this line
   { href: '/app/geo', label: 'Geo' },
   { href: '/app/company', label: 'Company' },
   { href: '/app/profiles', label: 'Profiles' },
@@ -41,3 +39,4 @@ export default function AppNav() {
     </nav>
   )
 }
+

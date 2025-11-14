@@ -133,7 +133,9 @@ export default function CallList() {
               <audio
                 controls
                 className="flex-1"
-                ref={el => (audioRefs.current[call.id] = el)}
+                ref={el => {
+  if (el) audioRefs.current[call.id] = el
+}}
                 src={fileUrl}
               />
               <button
