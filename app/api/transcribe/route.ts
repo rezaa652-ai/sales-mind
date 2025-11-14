@@ -1,59 +1,37 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseServer } from "@/lib/supabaseServer";
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const supabase = supabaseServer;
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
-    console.log("🎧 Starting transcription...");
+    const formData = await req.formData();
+    const file = formData.get("file") as File;
+    const filename = formData.get("filename") as string;
 
-    // Find latest uploaded file without transcript
-    const { data: calls, error } = await supabase
-      .from("calls")
-      .select("id, file_path, transcript")
-      .is("transcript", null)
-      .order("created_at", { ascending: false })
-      .limit(1);
+    if (!file || !filename) {
+      return NextResponse.json({ error: "Missing file or filename" }, { status: 400 });
+    }
 
-    if (error) throw error;
-    if (!calls?.length) throw new Error("No new calls to transcribe");
-
-    const call = calls[0];
-    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/calls/${call.file_path}`;
-
-    console.log("🔹 Transcribing:", publicUrl);
-
-    // Fetch audio file from Supabase public storage
-    const response = await fetch(publicUrl);
-    if (!response.ok) throw new Error("Failed to fetch audio file from storage");
-    const audioBuffer = await response.arrayBuffer();
-
-    // Send to OpenAI Whisper
+    const buffer = Buffer.from(await file.arrayBuffer());
     const transcription = await openai.audio.transcriptions.create({
-      file: new File([audioBuffer], "audio.mp3", { type: "audio/mpeg" }),
+      file: new File([buffer], filename, { type: "audio/mpeg" }),
       model: "gpt-4o-mini-transcribe",
+      response_format: "text",
     });
 
-    const text = transcription.text || "";
-    console.log("✅ Transcribed snippet:", text.slice(0, 50));
+    // Optional: store transcript in Supabase (safe call)
+    await supabase
+      .from("call_transcripts")
+      .insert({ filename, transcript: transcription });
 
-    // Save transcript
-    await supabase.from("calls").update({ transcript: text }).eq("id", call.id);
-
-    return NextResponse.json({
-      success: true,
-      id: call.id,
-      snippet: text.slice(0, 80),
-    });
-  } catch (err: any) {
-    console.error("❌ Transcription error:", err.message || err);
+    return NextResponse.json({ transcript: transcription });
+  } catch (e: any) {
+    console.error("transcribe route error:", e);
     return NextResponse.json(
-      { success: false, error: err.message || "Transcription failed" },
+      { error: "transcription_failed", detail: e?.message || String(e) },
       { status: 500 }
     );
   }
