@@ -1,17 +1,22 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { NextResponse } from "next/server";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export async function GET() {
-  const { data, error } = await supabase
-    .from('calls')
-    .select('*')
-    .order('created_at', { ascending: false })
+  try {
+    const supabase = supabaseServer;
+    const { data, error } = await supabase.from("calls").select("*").order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ calls: [] })
-  return NextResponse.json({ calls: data })
+    if (error) {
+      console.error("Supabase error:", error.message);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ data });
+  } catch (e: any) {
+    console.error("get-calls route error:", e);
+    return NextResponse.json(
+      { error: "get_calls_failed", detail: e?.message || String(e) },
+      { status: 500 }
+    );
+  }
 }
