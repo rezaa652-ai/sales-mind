@@ -1,21 +1,15 @@
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-import { type CookieOptions } from "@supabase/ssr";
+// lib/supabaseServer.ts
+import { createClient } from "@supabase/supabase-js";
 
-export async function supabaseServer() {
-  const cookieStore = await cookies(); // ✅ fix: await required in Next 15
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll() {
-          // no-op fix for "Cookies can only be modified..." warning
-        },
-      },
-    }
-  );
-}
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.SUPABASE_URL ||
+  "https://dummy-project.supabase.co"; // fallback for build
+
+const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  "dummy_supabase_key"; // fallback for build
+
+export const supabaseServer = createClient(SUPABASE_URL, SUPABASE_KEY);

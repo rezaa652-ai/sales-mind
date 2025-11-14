@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export default async function AuthLayout({ children }: { children: ReactNode }) {
-  const supabase = await supabaseServer(); // ✅ FIX: call it as a function
+  const supabase = supabaseServer; // ✅ FIX: call it as a function
   const {
     data: { user },
     error,

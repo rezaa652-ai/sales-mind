@@ -8,8 +8,13 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  const supabase = await supabaseServer(); // ✅ FIXED
-  const { data: { user }, error } = await supabase.auth.getUser();
+  // ✅ Use the Supabase instance directly (not callable)
+  const supabase = supabaseServer;
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
   if (error || !user) redirect("/auth");
 
