@@ -1,51 +1,38 @@
-// app/api/upload/route.ts
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-console.log("🔑 Upload API: checking keys...");
-console.log("URL:", process.env.NEXT_PUBLIC_SUPABASE_URL ? "✅ found" : "❌ missing");
-console.log("SERVICE_ROLE_KEY:", process.env.SUPABASE_SERVICE_ROLE_KEY ? "✅ found" : "❌ missing");
-
-// ✅ Create server Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;
+    const filename = formData.get("filename") as string;
 
-    if (!file) {
-      return NextResponse.json({ success: false, error: "No file provided" }, { status: 400 });
+    if (!file || !filename) {
+      return NextResponse.json({ error: "Missing file or filename" }, { status: 400 });
     }
 
-    // Convert the File into a Buffer
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const fileName = `${Date.now()}-${file.name}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const supabase = supabaseServer;
 
-    // ✅ Upload file to Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from("calls")
-      .upload(fileName, buffer, {
+    // ✅ Upload safely using centralized helper
+    const { data, error } = await supabase.storage
+      .from("audio")
+      .upload(filename, buffer, {
+        upsert: true,
         contentType: file.type || "audio/mpeg",
-        upsert: false,
       });
 
-    if (uploadError) throw uploadError;
+    if (error) {
+      console.error("Supabase upload error:", error.message);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
-    // ✅ Insert a record into Supabase DB
-    const { error: insertError } = await supabase
-      .from("calls")
-      .insert({ file_path: fileName, status: "uploaded" });
-
-    if (insertError) throw insertError;
-
-    return NextResponse.json({ success: true, file: fileName });
-  } catch (err: any) {
-    console.error("UPLOAD ERROR:", err.message);
-    return NextResponse.json({ success: false, error: err.message || "Upload failed" }, { status: 500 });
+    return NextResponse.json({ success: true, path: data?.path });
+  } catch (e: any) {
+    console.error("upload route error:", e);
+    return NextResponse.json(
+      { error: "upload_failed", detail: e?.message || String(e) },
+      { status: 500 }
+    );
   }
 }
