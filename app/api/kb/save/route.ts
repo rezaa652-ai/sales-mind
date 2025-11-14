@@ -1,3 +1,4 @@
+import { supabaseServer } from "@/lib/supabaseServer";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -8,7 +9,7 @@ import { createClient } from '@supabase/supabase-js'
 function s() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  return createClient(url, key, { auth: { persistSession: false } })
+  return supabaseServer;
 }
 
 type SaveBody = {

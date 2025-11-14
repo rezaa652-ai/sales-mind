@@ -1,3 +1,4 @@
+import { supabaseServer } from "@/lib/supabaseServer";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -12,7 +13,7 @@ const SUPABASE_KEY =
   process.env.SUPABASE_ANON_KEY ||
   "dummy_supabase_key";
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = supabaseServer;
 
 export async function DELETE(req: Request) {
   try {
