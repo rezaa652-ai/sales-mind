@@ -1,55 +1,62 @@
-// app/api/analyze-conversation/route.ts
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
+import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "dummy_openai_key",
+});
+
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.SUPABASE_URL ||
+  "https://dummy-project.supabase.co";
+
+const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  "dummy_supabase_key";
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export async function POST(req: Request) {
   try {
-    const { persona_id } = await req.json();
+    const { text, conversationId } = await req.json();
 
-    const { data: personas } = await supabase
-      .from("behavior_personas")
-      .select("*")
-      .eq("id", persona_id)
-      .limit(1);
+    if (!text) {
+      return NextResponse.json({ error: "Missing text" }, { status: 400 });
+    }
 
-    const { data: calls } = await supabase
-      .from("calls")
-      .select("transcript")
-      .not("transcript", "is", null)
-      .limit(3);
-
-    if (!calls?.length) return NextResponse.json({ success: false, error: "No transcripts available" });
-
-    const prompt = `
-Given these call transcripts and this customer persona, generate a JSON report with empathy_score (0-100) and talk_ratio (percentage rep vs. customer):
-Persona: ${JSON.stringify(personas?.[0])}
-Transcripts: ${calls.map(c=>c.transcript).join("\n---\n")}
-Return format: {"empathy_score":85,"talk_ratio":{"rep":60,"customer":40}}
-`;
-
-    const response = await openai.chat.completions.create({
+    // Example logic: analyze tone, clarity, and keywords with OpenAI
+    const analysis = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an AI call coach. Analyze the conversation for clarity, tone, and persuasion.",
+        },
+        { role: "user", content: text },
+      ],
     });
 
-    const result = JSON.parse(response.choices[0].message?.content || "{}");
+    const summary = analysis.choices[0].message.content || "No analysis result.";
 
-    await supabase.from("conversation_analytics").insert({
-      persona_id,
-      report: result,
-      conversation: calls,
-    });
+    // Store analysis in Supabase if a conversationId is provided
+    if (conversationId) {
+      await supabase.from("call_analytics").insert({
+        conversation_id: conversationId,
+        analysis: summary,
+        created_at: new Date().toISOString(),
+      });
+    }
 
-    return NextResponse.json({ success: true, report: result });
-  } catch (err: any) {
-    console.error("ANALYTICS ERROR:", err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ summary });
+  } catch (e: any) {
+    console.error("Analyze conversation error:", e);
+    return NextResponse.json(
+      { error: "analyze_conversation_failed", detail: e?.message || String(e) },
+      { status: 500 }
+    );
   }
 }
