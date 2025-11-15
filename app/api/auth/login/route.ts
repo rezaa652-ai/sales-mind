@@ -4,12 +4,12 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// ✅ Build redirect URL dynamically — always stay on same host
 function redirectTo(req: NextRequest, path: string) {
-  const u = new URL(req.url);
-  u.hostname = "salesmind.app"; // ✅ Force main domain
-  u.pathname = path;
-  u.search = "";
-  return u.toString();
+  const url = new URL(req.url);
+  url.pathname = path;
+  url.search = "";
+  return url.toString();
 }
 
 function createClient(req: NextRequest, res: NextResponse) {
@@ -18,18 +18,18 @@ function createClient(req: NextRequest, res: NextResponse) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return req.cookies.getAll(); },
+        getAll() {
+          return req.cookies.getAll();
+        },
         setAll(cookies) {
           cookies.forEach(({ name, value, options }) => {
-            const secure =
-              process.env.NODE_ENV === "production" ||
-              process.env.VERCEL === "1";
+            const secure = process.env.NODE_ENV === "production";
             res.cookies.set(name, value, {
               ...options,
               httpOnly: true,
               sameSite: "lax",
               secure,
-              domain: ".salesmind.app",
+              domain: undefined, // ✅ important: let browser handle same-origin
               path: "/",
             } as CookieOptions);
           });
@@ -64,3 +64,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e?.message || "login_failed" }, { status: 400 });
   }
 }
+
