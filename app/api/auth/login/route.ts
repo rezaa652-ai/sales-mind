@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-
-// ✅ Always redirect to the canonical www domain
-const PROD_ORIGIN = "https://www.salesmind.app";
-
+// Keep host dynamic — supports www + root
+function urlOnSameOrigin(req: NextRequest, pathname: string) {
+  const host = req.headers.get("host") || "www.salesmind.app";
+  const protocol = host.includes("localhost") ? "http" : "https";
+  return `${protocol}://${host}${pathname}`;
+}
 
 function makeClient(req: NextRequest, res: NextResponse) {
   return createServerClient(
@@ -16,7 +17,9 @@ function makeClient(req: NextRequest, res: NextResponse) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return req.cookies.getAll(); },
+        getAll() {
+          return req.cookies.getAll();
+        },
         setAll(cookies) {
           cookies.forEach(({ name, value, options }) => {
             res.cookies.set(name, value, options as CookieOptions);
@@ -27,25 +30,22 @@ function makeClient(req: NextRequest, res: NextResponse) {
   );
 }
 
-
 export async function POST(req: NextRequest) {
-  const redirectUrl = `${PROD_ORIGIN}/app/qa`; // 🔒 force to www.salesmind.app/app/qa
-  const res = NextResponse.redirect(redirectUrl, 303);
-
-
+  const res = NextResponse.redirect(urlOnSameOrigin(req, "/app/qa"), 303);
   try {
     const { email, password } = await req.json();
-    if (!email || !password)
-      return NextResponse.json({ error: "missing_credentials" }, { status: 400 });
-
-
+    console.log("🔐 Login attempt:", { email }); // 👈 logs to Vercel console
     const supabase = makeClient(req, res);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return NextResponse.json({ error: error.message }, { status: 401 });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    console.log("🧩 Supabase login result:", { data, error }); // 👈 see what’s returned
 
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
 
-    return res; // ✅ safe redirect, same origin
+    return res;
   } catch (e: any) {
+    console.error("💥 Login error:", e);
     return NextResponse.json({ error: e?.message || "bad_request" }, { status: 400 });
   }
 }
