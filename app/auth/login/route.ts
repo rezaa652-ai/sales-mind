@@ -4,11 +4,11 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function buildRedirect(req: NextRequest, path: string) {
+function redirectTo(req: NextRequest, path: string) {
   const u = new URL(req.url);
+  u.hostname = "salesmind.app"; // ✅ Force main domain
   u.pathname = path;
   u.search = "";
-  u.hash = "";
   return u.toString();
 }
 
@@ -21,7 +21,17 @@ function createClient(req: NextRequest, res: NextResponse) {
         getAll() { return req.cookies.getAll(); },
         setAll(cookies) {
           cookies.forEach(({ name, value, options }) => {
-            res.cookies.set(name, value, options as CookieOptions);
+            const secure =
+              process.env.NODE_ENV === "production" ||
+              process.env.VERCEL === "1";
+            res.cookies.set(name, value, {
+              ...options,
+              httpOnly: true,
+              sameSite: "lax",
+              secure,
+              domain: ".salesmind.app", // ✅ apply cookie to all subdomains
+              path: "/",
+            } as CookieOptions);
           });
         },
       },
@@ -30,7 +40,7 @@ function createClient(req: NextRequest, res: NextResponse) {
 }
 
 export async function POST(req: NextRequest) {
-  const res = NextResponse.redirect(buildRedirect(req, "/app/qa"), 303);
+  const res = NextResponse.redirect(redirectTo(req, "/app/qa"), 303);
   try {
     const { email, password } = await req.json();
     if (!email || !password)
@@ -38,9 +48,9 @@ export async function POST(req: NextRequest) {
 
     const supabase = createClient(req, res);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return NextResponse.json({ error: error.message }, { status: 401 });
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 401 });
 
-    // Cookies are set on `res`; redirect continues with them attached
     return res;
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "login_failed" }, { status: 400 });
