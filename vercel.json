@@ -1,0 +1,5 @@
+{
+  "redirects": [
+    { "source": "/(.*)", "has": [{ "type": "host", "value": "www.salesmind.app" }], "destination": "https://salesmind.app/:1", "permanent": true }
+  ]
+}
