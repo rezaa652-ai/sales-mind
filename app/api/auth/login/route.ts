@@ -4,7 +4,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Keep host dynamic — supports www + root
+// ✅ Always redirect to same host (www, local, etc.)
 function urlOnSameOrigin(req: NextRequest, pathname: string) {
   const host = req.headers.get("host") || "www.salesmind.app";
   const protocol = host.includes("localhost") ? "http" : "https";
@@ -34,10 +34,10 @@ export async function POST(req: NextRequest) {
   const res = NextResponse.redirect(urlOnSameOrigin(req, "/app/qa"), 303);
   try {
     const { email, password } = await req.json();
-    console.log("🔐 Login attempt:", { email }); // 👈 logs to Vercel console
+    console.log("🔐 Login attempt:", { email });
     const supabase = makeClient(req, res);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    console.log("🧩 Supabase login result:", { data, error }); // 👈 see what’s returned
+    console.log("🧩 Supabase login result:", { data, error });
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 401 });
