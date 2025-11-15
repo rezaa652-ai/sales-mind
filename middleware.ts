@@ -9,3 +9,10 @@ export function middleware(req: NextRequest) {
   console.log(`[DEBUG-MW] ${req.method} ${req.nextUrl.pathname} -> ${req.headers.get('content-type')}`)
   return NextResponse.next()
 }
+export const config = {
+  matcher: [
+    "/app/:path*",
+    // Exclude /auth from middleware
+    // No /auth/:path* here
+  ],
+};
