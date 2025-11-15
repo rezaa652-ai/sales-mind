@@ -28,8 +28,8 @@ function createClient(req: NextRequest, res: NextResponse) {
               ...options,
               httpOnly: true,
               sameSite: "lax",
-              secure,
-              domain: undefined, // ✅ important: let browser handle same-origin
+              secure: true,
+              domain: ".salesmind.app",
               path: "/",
             } as CookieOptions);
           });
