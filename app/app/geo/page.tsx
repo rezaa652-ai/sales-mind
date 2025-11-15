@@ -1,16 +1,13 @@
-'use client';
+'use client'
+import React, { useEffect, useMemo, useState } from 'react'
+import GeoElectricityInfo from '@/components/GeoElectricityInfo'
+import DemographicsCard, { DemoData } from '@/components/DemographicsCard'
+import { GoogleMap, Marker, useLoadScript } from '@react-google-maps/api'
 
-import React, { useEffect, useMemo, useState } from 'react';
-import GeoElectricityInfo from '@/components/GeoElectricityInfo';
-import DemographicsCard, { DemoData } from '@/components/DemographicsCard';
-import { GoogleMap, Marker, useLoadScript } from '@react-google-maps/api';
-
-// If you maintain a kommun list, point this to your file. Otherwise, we’ll derive kommun code best-effort.
-let KOMMUNER: Array<{ code: string; name_sv: string; name_en: string }> = [];
+let KOMMUNER: Array<{ code: string; name_sv: string; name_en: string }> = []
 try {
-  // adjust path if your list exists
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  KOMMUNER = require('../../../data/kommuner').KOMMUNER || [];
+  KOMMUNER = require('../../../data/kommuner').KOMMUNER || []
 } catch {}
 
 /** Types */
@@ -71,17 +68,16 @@ const LTEXT = {
 } as const;
 
 export default function GeoPage() {
-  const [lang, setLang] = useState<Lang>('sv');
-  const [address, setAddress] = useState('');
-  const [radius, setRadius] = useState(600);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | undefined>();
-  const [data, setData] = useState<GeoResp | null>(null);
-  const [scb, setScb] = useState<any | null>(null);
+  const [lang, setLang] = useState<Lang>('sv')
+  const [address, setAddress] = useState('')
+  const [radius, setRadius] = useState(600)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | undefined>()
+  const [data, setData] = useState<GeoResp | null>(null)
+  const [scb, setScb] = useState<any | null>(null)
 
-  const L = LTEXT[lang];
+  const L = LTEXT[lang]
 
-  // Demo/mock demographics we always can show
   const DEMO_MOCK: DemoData = {
     year: 2020,
     incomeByAge: [
@@ -94,77 +90,72 @@ export default function GeoPage() {
     ],
     population: 347_000,
     densityPerKm2: 5100,
-  };
+  }
 
   useEffect(() => {
-    // read a global app setting if you have one; fallback sv
-    const ql = new URLSearchParams(window.location.search).get('lang');
-    if (ql === 'en') setLang('en');
-  }, []);
+    const ql = new URLSearchParams(window.location.search).get('lang')
+    if (ql === 'en') setLang('en')
+  }, [])
 
-  // load Google Maps
   const { isLoaded } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
     libraries: ['places'],
-  });
+  })
 
   function onKeyDownSubmit(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      search();
+      e.preventDefault()
+      search()
     }
   }
 
   async function search() {
     try {
-      setLoading(true);
-      setError(undefined);
-      setData(null);
-      setScb(null);
+      setLoading(true)
+      setError(undefined)
+      setData(null)
+      setScb(null)
 
       const r = await fetch(
         `/api/geo/pois?address=${encodeURIComponent(address)}&radius_m=${radius}&lang=${lang}`,
         { cache: 'no-store' }
-      );
+      )
       if (!r.ok) {
-        const tx = await r.text().catch(() => '');
-        throw new Error(tx || `HTTP ${r.status}`);
+        const tx = await r.text().catch(() => '')
+        throw new Error(tx || `HTTP ${r.status}`)
       }
-      const json: GeoResp = await r.json();
-      setData(json);
+      const json: GeoResp = await r.json()
+      setData(json)
 
-      // Try derive kommun code
-      const kommunCode = guessKommunCodeFromAddress(json?.address, lang) || '';
+      const kommunCode = guessKommunCodeFromAddress(json?.address, lang) || ''
       if (kommunCode) {
         const sr = await fetch(
           `/api/geo/scb?region=${encodeURIComponent(kommunCode)}&year=2020&lang=${lang}`,
           { cache: 'no-store' }
-        );
+        )
         if (sr.ok) {
-          const sj = await sr.json();
-          setScb(sj);
+          const sj = await sr.json()
+          setScb(sj)
         }
       }
     } catch (e: any) {
-      setError(e?.message || 'Failed to fetch');
+      setError(e?.message || 'Failed to fetch')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
-  // Map bits
-  const center = data?.center;
-  const hasPois = Array.isArray(data?.pois) && data!.pois!.length > 0;
+  const center = data?.center
+  const hasPois = Array.isArray(data?.pois) && data!.pois!.length > 0
 
   const greenIcon = {
     url: 'https://maps.gstatic.com/mapfiles/ms2/micons/green-dot.png',
-    // Avoid TS complaining about google.maps type at build-time:
     scaledSize: { width: 32, height: 32 } as unknown as google.maps.Size,
-  };
+  }
 
   const map = useMemo(() => {
-    if (!center || !isLoaded) return null;
-    const centerLatLng = { lat: center.lat, lng: center.lon };
+    if (!center || !isLoaded) return null
+    const centerLatLng = { lat: center.lat, lng: center.lon }
     return (
       <div className="rounded-lg overflow-hidden border" style={{ height: 420 }}>
         <GoogleMap
@@ -184,20 +175,16 @@ export default function GeoPage() {
             ))}
         </GoogleMap>
       </div>
-    );
-  }, [center?.lat, center?.lon, isLoaded, hasPois, data, address]);
+    )
+  }, [center?.lat, center?.lon, isLoaded, hasPois, data, address])
 
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">{L.title}</h1>
 
-      {/* Inputs */}
       <form
         className="grid md:grid-cols-3 gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          search();
-        }}
+        onSubmit={(e) => { e.preventDefault(); search() }}
       >
         <label className="text-sm md:col-span-2">
           {L.address}
@@ -211,11 +198,7 @@ export default function GeoPage() {
           />
           <GeoElectricityInfo
             address={address}
-            center={
-              data?.center
-                ? { lat: data.center.lat, lon: data.center.lon }
-                : undefined
-            }
+            center={data?.center ? { lat: data.center.lat, lon: data.center.lon } : undefined}
           />
         </label>
         <label className="text-sm">
@@ -234,13 +217,9 @@ export default function GeoPage() {
 
         <div className="md:col-span-3 flex gap-2">
           <button
-            type="submit"
-            onClick={(e) => {
-              e.preventDefault();
-              search();
-            }}
-            disabled={loading}
+            onClick={(e) => { e.preventDefault(); search() }}
             className="bg-[var(--brand)] text-white rounded px-4 py-2 disabled:opacity-50"
+            disabled={loading}
           >
             {loading ? L.searching : L.search}
           </button>
@@ -249,7 +228,6 @@ export default function GeoPage() {
 
       {error && <div className="text-red-600 text-sm">{error}</div>}
 
-      {/* Split: left info, right map */}
       <div className="grid md:grid-cols-2 gap-4">
         <div className="space-y-3">
           {data?.segment && (
@@ -263,9 +241,7 @@ export default function GeoPage() {
             <div className="border rounded p-3 bg-slate-50">
               <div className="text-sm text-slate-600">{L.plan}</div>
               <ul className="list-disc pl-5 text-sm">
-                {data!.plan!.slice(0, 3).map((p, i) => (
-                  <li key={i}>{p}</li>
-                ))}
+                {data!.plan!.slice(0, 3).map((p, i) => <li key={i}>{p}</li>)}
               </ul>
             </div>
           )}
@@ -274,46 +250,33 @@ export default function GeoPage() {
             <div className="border rounded p-3 bg-slate-50">
               <div className="text-sm text-slate-600">{L.hooks}</div>
               <ul className="list-disc pl-5 text-sm">
-                {data!.hooks!.slice(0, 3).map((h, i) => (
-                  <li key={i}>{h}</li>
-                ))}
+                {data!.hooks!.slice(0, 3).map((h, i) => <li key={i}>{h}</li>)}
               </ul>
             </div>
           )}
 
-          {/* Demographics (mock – replace with live later) */}
-{data?.center && (<DemographicsCard data={DEMO_MOCK} title={L.demog} />)}
+          {data?.center && (<DemographicsCard data={DEMO_MOCK} title={L.demog} />)}
 
-          {/* SCB card (kept; shows only if API returned) */}
           {scb &&
             Array.isArray(scb.median_income_by_age) &&
             scb.median_income_by_age.length > 0 && (
               <div className="border rounded p-3 bg-slate-50">
-                <div className="text-sm text-slate-600">
-                  {L.demog} — {scb.year}
-                </div>
+                <div className="text-sm text-slate-600">{L.demog} — {scb.year}</div>
                 <ul className="list-disc pl-5 text-sm">
                   {scb.median_income_by_age.map((row: any, i: number) => (
-                    <li key={i}>
-                      {row.age}: {row.tkr}
-                    </li>
+                    <li key={i}>{row.age}: {row.tkr}</li>
                   ))}
                 </ul>
               </div>
             )}
 
-          {/* Nearby */}
           {Array.isArray(data?.pois) && data!.pois!.length > 0 && (
             <div className="border rounded p-3 bg-slate-50">
               <div className="text-sm text-slate-600">{L.nearby}</div>
               <ul className="list-disc pl-5 text-sm">
                 {data!.pois!.slice(0, 12).map((p, i) => {
-                  const dist =
-                    typeof p.distance_m === 'number'
-                      ? `${Math.round(p.distance_m)} m`
-                      : '';
-                  const rating =
-                    typeof p.rating === 'number' ? ` • ★ ${p.rating}` : '';
+                  const dist = typeof p.distance_m === 'number' ? `${Math.round(p.distance_m)} m` : ''
+                  const rating = typeof p.rating === 'number' ? ` • ★ ${p.rating}` : ''
                   return (
                     <li key={i}>
                       <span className="font-medium">{p.name || '—'}</span>
@@ -321,7 +284,7 @@ export default function GeoPage() {
                       {dist ? <> • {dist}</> : null}
                       {rating ? <>{rating}</> : null}
                     </li>
-                  );
+                  )
                 })}
               </ul>
             </div>
@@ -335,26 +298,21 @@ export default function GeoPage() {
         )}</div>
       </div>
     </div>
-  );
+  )
 }
 
-/** best-effort kommun code extraction (kept for later SCB work) */
-function guessKommunCodeFromAddress(
-  addr?: string | null,
-  lang: Lang = 'sv'
-): string | undefined {
-  if (!addr) return undefined;
-  const txt = addr.toLowerCase();
+function guessKommunCodeFromAddress(addr?: string | null, lang: Lang = 'sv'): string | undefined {
+  if (!addr) return undefined
+  const txt = addr.toLowerCase()
   const matches = KOMMUNER.filter(
     (k) =>
       k.name_sv.toLowerCase() === txt ||
       txt.includes(k.name_sv.toLowerCase()) ||
       txt.includes(k.name_en.toLowerCase())
-  );
-  if (matches.length > 0) return matches[0].code;
-  // simple fallbacks for common big cities if list not loaded
-  if (/malm/.test(txt)) return '1280';
-  if (/stockholm/.test(txt)) return '0180';
-  if (/göteborg|goteborg|gothenburg/.test(txt)) return '1480';
-  return undefined;
+  )
+  if (matches.length > 0) return matches[0].code
+  if (/malm/.test(txt)) return '1280'
+  if (/stockholm/.test(txt)) return '0180'
+  if (/göteborg|goteborg|gothenburg/.test(txt)) return '1480'
+  return undefined
 }

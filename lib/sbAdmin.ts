@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // lib/sbAdmin.ts
 export async function sbAdmin(path: string, init: RequestInit = {}) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!

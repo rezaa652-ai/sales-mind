@@ -12,13 +12,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => { setLang(getLang()) }, [pathname])
 
   const links = [
-    { href: '/app/qa',       label: t(lang, 'nav.qa') },
-    { href: '/app/profiles', label: t(lang, 'nav.profiles') },
-    { href: '/app/company',  label: t(lang, 'nav.company') },
-    { href: '/app/kb',       label: t(lang, 'nav.kb') },
-    { href: '/app/events',   label: t(lang, 'nav.events') },
-    { href: '/app/geo',      label: t(lang, 'nav.geo') },
-    { href: '/app/settings', label: t(lang, 'nav.settings') },
+    { href: '/app/qa',        label: t(lang, 'nav.qa') },
+    { href: '/app/upload',    label: 'Upload' },
+    { href: '/app/aicall',    label: 'AI Call' },  // 👈 renamed
+    { href: '/app/profiles',  label: t(lang, 'nav.profiles') },
+    { href: '/app/company',   label: t(lang, 'nav.company') },
+    { href: '/app/kb',        label: t(lang, 'nav.kb') },
+    { href: '/app/events',    label: t(lang, 'nav.events') },
+    { href: '/app/geo',       label: t(lang, 'nav.geo') },
+    { href: '/app/settings',  label: t(lang, 'nav.settings') },
   ]
 
   return (
@@ -30,14 +32,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Link
               key={l.href}
               href={l.href}
-              className={`p-2 rounded ${pathname === l.href ? 'bg-blue-100 text-blue-600 font-medium' : 'hover:bg-gray-100'}`}
+              className={`p-2 rounded ${
+                pathname === l.href
+                  ? 'bg-blue-100 text-blue-600 font-medium'
+                  : 'hover:bg-gray-100'
+              }`}
             >
               {l.label}
             </Link>
           ))}
         </nav>
       </aside>
-      <main className="flex-1 p-6 max-w-[960px]">{children}</main>
+
+      <main className="flex-1">{children}</main>
     </div>
   )
 }
