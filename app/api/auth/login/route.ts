@@ -4,7 +4,14 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function makeClient(req: NextRequest, res: NextResponse) {
+// Always redirect and set cookies for the same host (www.salesmind.app)
+function sameOrigin(req: NextRequest, path: string) {
+  const host = req.headers.get("host") || "www.salesmind.app";
+  const protocol = host.includes("localhost") ? "http" : "https";
+  return `${protocol}://${host}${path}`;
+}
+
+function createClient(req: NextRequest, res: NextResponse) {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -15,16 +22,14 @@ function makeClient(req: NextRequest, res: NextResponse) {
         },
         setAll(cookies) {
           cookies.forEach(({ name, value, options }) => {
-            const opts: CookieOptions = {
+            res.cookies.set(name, value, {
               ...options,
               httpOnly: true,
               sameSite: "lax",
               secure: true,
-              domain: ".salesmind.app", // ✅ applies to both www and root
+              domain: "www.salesmind.app", // ✅ force single origin
               path: "/",
-            };
-            console.log("🍪 Writing cookie:", name);
-            res.cookies.set(name, value, opts);
+            } as CookieOptions);
           });
         },
       },
@@ -33,31 +38,15 @@ function makeClient(req: NextRequest, res: NextResponse) {
 }
 
 export async function POST(req: NextRequest) {
-  console.log("🔐 Login attempt started");
-  const res = NextResponse.next(); // ✅ create a response we can modify first
-
+  const res = NextResponse.redirect(sameOrigin(req, "/app/qa"), 303);
   try {
     const { email, password } = await req.json();
-    if (!email || !password)
-      return NextResponse.json({ error: "missing_credentials" }, { status: 400 });
-
-    const supabase = makeClient(req, res);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      console.error("❌ Supabase error:", error.message);
+    const supabase = createClient(req, res);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error)
       return NextResponse.json({ error: error.message }, { status: 401 });
-    }
-
-    console.log("✅ Auth success, cookies set. Redirecting...");
-    // ✅ Now redirect AFTER cookies written
-    const redirectRes = NextResponse.redirect("https://www.salesmind.app/app/qa", 303);
-    res.cookies.getAll().forEach((cookie) => {
-      redirectRes.cookies.set(cookie);
-    });
-    return redirectRes;
+    return res;
   } catch (e: any) {
-    console.error("💥 Login route failed:", e.message);
     return NextResponse.json({ error: e?.message || "login_failed" }, { status: 400 });
   }
 }
