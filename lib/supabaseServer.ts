@@ -2,9 +2,9 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
 export async function supabaseServer() {
-  const cookieStore = cookies(); // ✅ synchronous in Next.js 15
+  const cookieStore = await cookies(); // ✅ must be awaited in Next.js 15+
 
-  // ✅ Read-only Supabase client for use in layouts and server components
+  // ✅ Read-only Supabase client for layouts and RSC
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -17,7 +17,7 @@ export async function supabaseServer() {
             return [];
           }
         },
-        // 🚫 No writes allowed here (Next.js 15 restriction)
+        // 🚫 Disable writes outside route handlers
         setAll() {
           if (process.env.NODE_ENV === "development") {
             console.warn("[supabaseServer] Cookie write attempted in layout — blocked.");
