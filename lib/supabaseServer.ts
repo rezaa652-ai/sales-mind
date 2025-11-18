@@ -1,21 +1,27 @@
 import { cookies } from "next/headers";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 
 export async function supabaseServer() {
-  const cookieStore = await cookies(); // ✅ must be awaited in Next.js 15+
+  const cookieStore = cookies(); // ✅ synchronous in Next.js 15
 
+  // ✅ Read-only Supabase client for use in layouts and server components
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll();
+          try {
+            return cookieStore.getAll();
+          } catch {
+            return [];
+          }
         },
-        setAll(cookies) {
-          cookies.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options as CookieOptions);
-          });
+        // 🚫 No writes allowed here (Next.js 15 restriction)
+        setAll() {
+          if (process.env.NODE_ENV === "development") {
+            console.warn("[supabaseServer] Cookie write attempted in layout — blocked.");
+          }
         },
       },
     }
