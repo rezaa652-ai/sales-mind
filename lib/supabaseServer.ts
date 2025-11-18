@@ -1,16 +1,25 @@
-// lib/supabaseServer.ts
-import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
-// ✅ Use safe fallbacks so build never fails
-const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.SUPABASE_URL ||
-  "https://dummy-project.supabase.co";
+export async function supabaseServer() {
+  const cookieStore = await cookies(); // ✅ must be awaited in Next.js 15+
 
-const SUPABASE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_SERVICE_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  "dummy_supabase_key"; // fallback for build
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookies) {
+          cookies.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options as CookieOptions);
+          });
+        },
+      },
+    }
+  );
 
-export const supabaseServer = createClient(SUPABASE_URL, SUPABASE_KEY);
+  return supabase;
+}

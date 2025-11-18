@@ -1,4 +1,3 @@
-// app/app/layout.tsx
 import { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
@@ -8,8 +7,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  // ✅ Use the Supabase instance directly (not callable)
-  const supabase = supabaseServer;
+  const supabase = await supabaseServer(); // ✅ call function
 
   const {
     data: { user },
