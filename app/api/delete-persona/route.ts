@@ -23,7 +23,11 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Missing persona ID" }, { status: 400 });
     }
 
-    const { error } = await supabase.from("behavior_personas").delete().eq("id", id);
+    const supabase = await supabaseServer(); // ✅ properly get the Supabase client
+const { error } = await supabase
+  .from("behavior_personas")
+  .delete()
+  .eq("id", id);
 
     if (error) {
       return NextResponse.json(

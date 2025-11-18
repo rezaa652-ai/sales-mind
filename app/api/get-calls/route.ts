@@ -3,8 +3,11 @@ import { supabaseServer } from "@/lib/supabaseServer";
 
 export async function GET() {
   try {
-    const supabase = supabaseServer;
-    const { data, error } = await supabase.from("calls").select("*").order("created_at", { ascending: false });
+    const supabase = await supabaseServer();
+    const { data, error } = await supabase
+      .from("calls")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Supabase error:", error.message);

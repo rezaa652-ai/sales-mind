@@ -1,8 +1,11 @@
 // app/auth/debug/page.tsx
 import { supabaseServer } from "@/lib/supabaseServer";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export default async function DebugAuthPage() {
-  const supabase = supabaseServer; // ✅ not callable
+  const supabase = await supabaseServer(); // ✅ Correctly call the function
 
   const {
     data: { user },

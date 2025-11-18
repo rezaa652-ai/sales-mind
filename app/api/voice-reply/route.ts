@@ -1,36 +1,27 @@
-import { supabaseServer } from "@/lib/supabaseServer";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseServer } from "@/lib/supabaseServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || "dummy_openai_key",
 });
 
-const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.SUPABASE_URL ||
-  "https://dummy-project.supabase.co";
-
-const SUPABASE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_SERVICE_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  "dummy_supabase_key";
-
-const supabase = supabaseServer;
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { text, personaId } = await req.json();
-
-    if (!text || !personaId) {
+    const { personaId, userText } = await req.json();
+    if (!personaId || !userText) {
       return NextResponse.json(
-        { error: "Missing text or personaId" },
+        { error: "Missing personaId or userText" },
         { status: 400 }
       );
     }
 
+    const supabase = await supabaseServer();
+
+    // ✅ Fetch the persona info
     const { data: persona, error: personaError } = await supabase
       .from("behavior_personas")
       .select("*")
@@ -44,40 +35,32 @@ export async function POST(req: Request) {
       );
     }
 
-    const systemPrompt = `
-You are a ${persona.name} customer.
-Description: ${persona.description}
-Behavior: ${persona.behavior}
-Objections: ${
-      Array.isArray(persona.objection_examples)
-        ? persona.objection_examples.join(", ")
-        : persona.objection_examples
-    }
-Keep answers short and natural.
-`;
+    // Generate the voice/text reply
+    const prompt = `You are acting as ${persona.name || "a sales coach"} with tone "${persona.tone || "neutral"}".
+Respond to this message helpfully and clearly:
+"${userText}"`;
 
-    const reply = await openai.chat.completions.create({
+    const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: text },
+        { role: "system", content: "You are a helpful conversational AI." },
+        { role: "user", content: prompt },
       ],
     });
 
-    const replyText = reply.choices[0].message.content || "I’m not sure.";
+    const reply = completion.choices[0]?.message?.content || "No response generated.";
 
-    const speech = await openai.audio.speech.create({
-      model: "gpt-4o-mini-tts",
-      voice: "alloy",
-      input: replyText,
+    // Optional: save to Supabase
+    await supabase.from("voice_replies").insert({
+      persona_id: personaId,
+      user_input: userText,
+      ai_reply: reply,
+      created_at: new Date().toISOString(),
     });
 
-    const arrayBuffer = await speech.arrayBuffer();
-    const base64Audio = Buffer.from(arrayBuffer).toString("base64");
-
-    return NextResponse.json({ audio: base64Audio, replyText });
+    return NextResponse.json({ ok: true, reply });
   } catch (e: any) {
-    console.error("Voice reply error:", e);
+    console.error("voice-reply error:", e);
     return NextResponse.json(
       { error: "voice_reply_failed", detail: e?.message || String(e) },
       { status: 500 }

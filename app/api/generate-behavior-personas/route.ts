@@ -2,43 +2,53 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseServer } from "@/lib/supabaseServer";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const supabase = supabaseServer;
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "dummy_openai_key",
+});
 
 export async function POST(req: Request) {
   try {
-    const { topic } = await req.json();
+    const { text } = await req.json();
 
-    if (!topic) {
-      return NextResponse.json({ error: "Missing topic" }, { status: 400 });
+    if (!text) {
+      return NextResponse.json({ error: "Missing text" }, { status: 400 });
     }
 
-    const prompt = `
-      Generate 3 short, distinct sales personas related to: "${topic}".
-      Each persona should have: name, description, behavior, and objection examples.
-      Return JSON format only.
-    `;
+    const supabase = await supabaseServer();
 
+    // Use OpenAI to generate behavioral personas
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [{ role: "system", content: prompt }],
-      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "Generate a JSON list of 3–5 sales behavior personas with attributes like name, motivation, tone, and strategy.",
+        },
+        { role: "user", content: text },
+      ],
     });
 
-    const personas = JSON.parse(response.choices[0].message?.content || "{}");
+    const personas = JSON.parse(
+      response.choices[0].message?.content || "{}"
+    );
+
     const { data, error } = await supabase
       .from("behavior_personas")
       .insert(personas);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: "Insert failed", detail: error.message },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({ ok: true, data });
   } catch (e: any) {
     console.error("generate-behavior-personas error:", e);
     return NextResponse.json(
-      { error: "generation_failed", detail: e?.message || String(e) },
+      { error: "generate_behavior_personas_failed", detail: e?.message || String(e) },
       { status: 500 }
     );
   }

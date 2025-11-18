@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 
 export async function GET() {
-  const supabase = supabaseServer;
-
   try {
-    const { data, error } = await supabase.from("behavior_personas").select("*");
+    const supabase = await supabaseServer();
+    const { data, error } = await supabase
+      .from("behavior_personas")
+      .select("*");
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

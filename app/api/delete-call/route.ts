@@ -23,7 +23,9 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Missing call ID" }, { status: 400 });
     }
 
-    const { error } = await supabase.from("calls").delete().eq("id", id);
+    
+const supabase = await supabaseServer(); // ✅ call the function to get the client
+const { error } = await supabase.from("calls").delete().eq("id", id);
 
     if (error) {
       return NextResponse.json(
