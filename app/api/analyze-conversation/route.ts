@@ -43,14 +43,15 @@ export async function POST(req: Request) {
 
     const summary = analysis.choices[0].message.content || "No analysis result.";
 
-    // Store analysis in Supabase if a conversationId is provided
-    if (conversationId) {
-      await supabase.from("call_analytics").insert({
-        conversation_id: conversationId,
-        analysis: summary,
-        created_at: new Date().toISOString(),
-      });
-    }
+   // Store analysis in Supabase if a conversationId is provided
+if (conversationId) {
+  const supabase = await supabaseServer(); // ✅ fix here
+  await supabase.from("call_analytics").insert({
+    conversation_id: conversationId,
+    analysis: summary,
+    created_at: new Date().toISOString(),
+  });
+}
 
     return NextResponse.json({ summary });
   } catch (e: any) {
