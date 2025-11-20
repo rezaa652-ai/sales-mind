@@ -1,21 +1,31 @@
-// lib/supabaseServer.ts
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 
 export async function supabaseServer() {
-  const cookieStore = await cookies()
-  return createServerClient(
+  const cookieStore = await cookies(); // ✅ must be awaited in Next.js 15+
+
+  // ✅ Read-only Supabase client for layouts and RSC
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
+        getAll() {
+          try {
+            return cookieStore.getAll();
+          } catch {
+            return [];
+          }
         },
-        // I server components kan vi inte skriva cookies – låt middleware/APIs göra det
-        set() {},
-        remove() {},
+        // 🚫 Disable writes outside route handlers
+        setAll() {
+          if (process.env.NODE_ENV === "development") {
+            console.warn("[supabaseServer] Cookie write attempted in layout — blocked.");
+          }
+        },
       },
     }
-  )
+  );
+
+  return supabase;
 }

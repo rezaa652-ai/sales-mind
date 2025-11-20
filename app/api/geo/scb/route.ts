@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
@@ -43,7 +44,8 @@ export async function GET(req: NextRequest) {
       { code: HH_CODE, selection: { filter: 'item', values: [HH_KEEP] } },
     ]
 
-    async function postPX(body: any) {
+    // ✅ FIXED: convert inner function to arrow expression
+    const postPX = async (body: any) => {
       const resp = await fetch(endpoint, {
         method: 'POST',
         headers: {

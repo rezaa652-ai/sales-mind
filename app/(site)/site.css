@@ -1,0 +1,8 @@
+/* Desktop: after the first two sections, make images 80% width */
+@media (min-width: 768px) {
+  main section:nth-of-type(n+3) img {
+    width: 80% !important;
+    margin: 0 auto;
+    display: block;
+  }
+}
