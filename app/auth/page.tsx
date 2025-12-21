@@ -24,11 +24,15 @@ export default function AuthPage() {
 
   async function syncCookiesFromSession() {
     const sb = supabaseBrowser()
-    const { data } = await sb.auth.getSession()
-    const session = data?.session
-    if (!session?.access_token || !session?.refresh_token) return
+    const { data, error } = await sb.auth.getSession()
+    if (error) throw new Error(error.message)
 
-    await fetch('/api/auth/sync', {
+    const session = data?.session
+    if (!session?.access_token || !session?.refresh_token) {
+      throw new Error('missing_session_tokens')
+    }
+
+    const res = await fetch('/api/auth/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -37,6 +41,9 @@ export default function AuthPage() {
         refresh_token: session.refresh_token,
       }),
     })
+
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(json?.error || 'sync_failed')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,8 +59,8 @@ export default function AuthPage() {
         const { error: signInErr } = await sb.auth.signInWithPassword({ email, password })
         if (signInErr) throw new Error(signInErr.message)
 
-        // 1) client session -> localStorage (fixes "Not authenticated" for direct uploads)
-        // 2) sync SSR cookies so server components/layouts work
+        // 1) stores session in localStorage (persistSession must be true in supabaseBrowser)
+        // 2) syncs cookies for SSR/API routes
         await syncCookiesFromSession()
 
         window.location.href = '/app/qa'
@@ -63,6 +70,7 @@ export default function AuthPage() {
       if (mode === 'signup') {
         const { error: signUpErr } = await sb.auth.signUp({ email, password })
         if (signUpErr) throw new Error(signUpErr.message)
+
         setMessage('Signed up. Check your email to confirm, then log in.')
         setMode('login')
         return
@@ -74,6 +82,7 @@ export default function AuthPage() {
           redirectTo: `${origin}/auth/callback`,
         })
         if (resetErr) throw new Error(resetErr.message)
+
         setMessage('Password reset email sent.')
         setMode('login')
         return
