@@ -1,7 +1,7 @@
-
 "use client";
 
 import { useState } from "react";
+import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 export default function AuthPage() {
   const [email, setEmail] = useState("");
@@ -30,19 +30,40 @@ export default function AuthPage() {
         credentials: "include",
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
+
+      // IMPORTANT: Hydrate browser session for direct-to-storage uploads
+      if (mode === "login" && data.session?.access_token && data.session?.refresh_token) {
+        const sb = supabaseBrowser();
+        await sb.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+      }
 
       if (data.redirect) {
         window.location.href = data.redirect;
-      } else if (data.error) {
-        setError(data.error);
-      } else if (mode === "signup" && data.success) {
+        return;
+      }
+
+      if (mode === "signup" && data.success) {
         setMessage("Signed up successfully. You can now log in.");
         setMode("login");
-      } else if (mode === "reset" && data.success) {
+        return;
+      }
+
+      if (mode === "reset" && data.success) {
         setMessage("Password reset link sent to your email.");
         setMode("login");
+        return;
       }
+
+      setError("Unexpected response from server.");
     } catch (err: any) {
       setError("Something went wrong.");
     } finally {
@@ -93,9 +114,7 @@ export default function AuthPage() {
           type="submit"
           disabled={loading}
           className={`w-full py-2 rounded-lg text-white font-medium transition ${
-            loading
-              ? "bg-blue-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
+            loading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
           }`}
         >
           {loading
@@ -120,8 +139,6 @@ export default function AuthPage() {
                   Sign up
                 </button>
               </p>
-
-              {/* 🔹 Simplified forgot password link */}
               <p>
                 <button
                   type="button"

@@ -6,11 +6,7 @@ export const dynamic = "force-dynamic";
 
 function createClient(req: NextRequest, res: NextResponse) {
   const host = req.headers.get("host") || "";
-
-  const isLocal =
-    host.includes("localhost") || host.includes("127.0.0.1");
-
-  const isPreview = host.includes(".vercel.app");
+  const isLocal = host.includes("localhost") || host.includes("127.0.0.1");
   const isProduction = host.endsWith("salesmind.app");
 
   return createServerClient(
@@ -28,7 +24,7 @@ function createClient(req: NextRequest, res: NextResponse) {
               httpOnly: true,
               sameSite: "lax",
               secure: !isLocal,
-              domain: isProduction ? "salesmind.app" : undefined,
+              domain: isProduction ? "salesmind.app" : undefined, // IMPORTANT for preview/local
               path: "/",
             } as CookieOptions);
           });
@@ -56,11 +52,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
 
-    console.log("✅ Login success for:", data.user.email);
+    console.log("✅ Login success for:", data.user?.email);
 
-    // ✅ Return success with cookies attached
+    // Return tokens too so the browser can persist session for direct Storage upload
+    const session = data.session
+      ? {
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        }
+      : null;
+
     return new NextResponse(
-      JSON.stringify({ success: true, redirect: "/app/qa" }),
+      JSON.stringify({ success: true, redirect: "/app/qa", session }),
       {
         status: 200,
         headers: {
@@ -72,7 +75,7 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     console.error("🔥 Login failed:", e);
     return NextResponse.json(
-      { error: e.message || "server_failed" },
+      { error: e?.message || "server_failed" },
       { status: 500 }
     );
   }
