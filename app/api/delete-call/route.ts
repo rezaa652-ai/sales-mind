@@ -1,44 +1,50 @@
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.SUPABASE_URL ||
-  "https://dummy-project.supabase.co";
+export const runtime = "nodejs";
 
-const SUPABASE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_SERVICE_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  "dummy_supabase_key";
-
-const supabase = supabaseServer;
-
-export async function DELETE(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const { id } = await req.json();
+    if (!id)
+      return NextResponse.json({ error: "missing_id" }, { status: 400 });
 
-    if (!id) {
-      return NextResponse.json({ error: "Missing call ID" }, { status: 400 });
-    }
+    const supabase = await supabaseServer();
 
-    
-const supabase = await supabaseServer(); // ✅ call the function to get the client
-const { error } = await supabase.from("calls").delete().eq("id", id);
+    // ✅ 1. Fetch file path before deleting
+    const { data: call, error: fetchErr } = await supabase
+      .from("calls")
+      .select("file_path")
+      .eq("id", id)
+      .single();
 
-    if (error) {
+    if (fetchErr || !call)
       return NextResponse.json(
-        { error: "Delete failed", detail: error.message },
+        { error: "call_not_found", detail: fetchErr?.message },
+        { status: 404 }
+      );
+
+    // ✅ 2. Delete from storage
+    const { error: storageErr } = await supabase.storage
+      .from("calls")
+      .remove([call.file_path]);
+
+    if (storageErr)
+      console.warn("Storage delete warning:", storageErr.message);
+
+    // ✅ 3. Delete from calls (which cascades to transcripts/personas)
+    const { error: dbErr } = await supabase.from("calls").delete().eq("id", id);
+    if (dbErr)
+      return NextResponse.json(
+        { error: "delete_failed", detail: dbErr.message },
         { status: 500 }
       );
-    }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ ok: true });
   } catch (e: any) {
-    console.error("Delete call error:", e);
+    console.error("delete-call error:", e);
     return NextResponse.json(
-      { error: "delete_call_failed", detail: e?.message || String(e) },
+      { error: e?.message || "server_error" },
       { status: 500 }
     );
   }

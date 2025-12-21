@@ -26,6 +26,7 @@ async function openaiTranscribe(file: File) {
   const j = await r.json()
   return (j?.text || '').trim()
 }
+
 async function openaiEmbed(texts: string[]) {
   const r = await fetch('https://api.openai.com/v1/embeddings', {
     method: 'POST',
@@ -52,6 +53,7 @@ function chunkText(s: string, maxChars = 1200) {
   }
   return out.filter(Boolean)
 }
+
 export async function POST(req: NextRequest) {
   try {
     const { supabase } = supabaseFromRequest(req)
@@ -66,6 +68,7 @@ export async function POST(req: NextRequest) {
     const safeName = (file.name || 'audio').replace(/\s+/g,'_')
     const path = `${user.id}/${id}_${safeName}`
 
+    // 1️⃣ Upload file to Supabase storage
     const { error: upErr } = await supabase.storage
       .from('calls')
       .upload(path, await file.arrayBuffer(), {
@@ -74,6 +77,7 @@ export async function POST(req: NextRequest) {
       })
     if (upErr) return NextResponse.json({ error: `upload_failed: ${upErr.message}` }, { status: 500 })
 
+    // 2️⃣ Create DB row
     const { error: callErr } = await supabase
       .from('calls')
       .insert({
@@ -83,11 +87,12 @@ export async function POST(req: NextRequest) {
         size_bytes: file.size || null
       })
     if (callErr) return NextResponse.json({ error: callErr.message }, { status: 500 })
-    // transcribe
+
+    // 3️⃣ Transcribe with OpenAI Whisper
     const text = await openaiTranscribe(file)
     await supabase.from('calls').update({ text }).eq('id', id)
 
-    // chunk + embed + insert
+    // 4️⃣ Chunk + embed + store embeddings
     const chunks = chunkText(text)
     if (chunks.length) {
       const embs = await openaiEmbed(chunks)
@@ -96,6 +101,17 @@ export async function POST(req: NextRequest) {
       }))
       const { error: chErr } = await supabase.from('call_chunks').insert(rows)
       if (chErr) console.error('chunk_insert_error', chErr.message)
+    }
+
+    // 5️⃣ ✅ Auto-generate persona from this call
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/api/personas/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ call_id: id }),
+      })
+    } catch (genErr) {
+      console.error("persona_auto_generate_failed:", genErr)
     }
 
     return NextResponse.json({ ok: true, id, chunks: chunks.length })

@@ -1,5 +1,4 @@
 'use client'
-
 import { useState, DragEvent } from 'react'
 
 export default function UploadForm() {
@@ -29,43 +28,64 @@ export default function UploadForm() {
     setDragOver(false)
   }
 
+  // ✅ Upload → Auto-transcribe → Auto-refresh UI
   async function handleUpload() {
     if (!file) return alert('Please choose a file first.')
     setLoading(true)
     setMessage('')
+
     try {
       const formData = new FormData()
       formData.append('file', file)
+
       const res = await fetch('/api/upload', { method: 'POST', body: formData })
       const data = await res.json()
-      if (data.success) {
-        setMessage('✅ File uploaded successfully!')
-        setFile(null)
-      } else {
-        setMessage('❌ ' + data.error)
-      }
+
+      if (!data.ok) throw new Error(data.error || 'Upload failed')
+
+      setMessage('✅ File uploaded successfully! Starting transcription...')
+      window.dispatchEvent(new Event('callsUpdated'))
+
+      // ✅ Start transcription with correct UUID
+      await handleTranscribe(data.path, data.filename, data.userId, data.callId)
     } catch (err: any) {
+      console.error('Upload error:', err)
       setMessage('❌ Upload failed: ' + err.message)
     } finally {
       setLoading(false)
+      setFile(null)
     }
   }
 
-  async function handleTranscribe() {
-    setLoading(true)
-    setMessage('')
+  async function handleTranscribe(path: string, filename: string, userId: string, callId: string) {
     try {
-      const res = await fetch('/api/transcribe', { method: 'POST' })
-      const data = await res.json()
-      if (data.success) {
-        setMessage('✅ Transcription complete!')
+      setMessage('🎧 Generating signed URL...')
+      const urlRes = await fetch('/api/get-call-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      })
+      const { url } = await urlRes.json()
+      if (!url) throw new Error('Failed to generate signed URL.')
+
+      setMessage('🧠 Transcribing + creating persona...')
+      const transcribeRes = await fetch('/api/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audioUrl: url, filename, userId, callId }),
+      })
+
+      const transcribeData = await transcribeRes.json()
+      if (transcribeData.ok) {
+        setMessage('✅ Transcription complete + Persona generated!')
+        window.dispatchEvent(new Event('callsUpdated'))
+        window.dispatchEvent(new Event('personasUpdated'))
       } else {
-        setMessage('❌ ' + data.error)
+        throw new Error(transcribeData.error || 'Transcription failed.')
       }
     } catch (err: any) {
+      console.error('Transcribe error:', err)
       setMessage('❌ ' + err.message)
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -86,12 +106,8 @@ export default function UploadForm() {
             <strong>{file.name}</strong>
           ) : (
             <>
-              <span className="block text-lg font-semibold">
-                Drag & drop your file here
-              </span>
-              <span className="text-sm text-black/60">
-                or click below to choose a file
-              </span>
+              <span className="block text-lg font-semibold">Drag & drop your file here</span>
+              <span className="text-sm text-black/60">or click below to choose a file</span>
             </>
           )}
         </p>
@@ -104,7 +120,6 @@ export default function UploadForm() {
         />
       </div>
 
-      {/* Action buttons */}
       <div className="flex gap-4">
         <button
           onClick={handleUpload}
@@ -113,16 +128,10 @@ export default function UploadForm() {
         >
           {loading ? 'Uploading...' : 'Upload'}
         </button>
-        <button
-          onClick={handleTranscribe}
-          disabled={loading}
-          className="bg-black text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60"
-        >
-          {loading ? 'Working...' : 'Transcribe'}
-        </button>
       </div>
 
       {message && <p className="text-sm mt-2 text-black">{message}</p>}
     </div>
   )
 }
+

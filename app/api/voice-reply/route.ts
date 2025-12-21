@@ -6,64 +6,94 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "dummy_openai_key",
+  apiKey: process.env.OPENAI_API_KEY || "",
 });
+
+const memory = new Map<string, { role: string; content: string }[]>();
 
 export async function POST(req: NextRequest) {
   try {
-    const { personaId, userText } = await req.json();
-    if (!personaId || !userText) {
-      return NextResponse.json(
-        { error: "Missing personaId or userText" },
-        { status: 400 }
-      );
-    }
+    const { personaId, userText, sessionId } = await req.json();
+    if (!personaId || !userText)
+      return NextResponse.json({ error: "Missing personaId or userText" }, { status: 400 });
 
     const supabase = await supabaseServer();
 
-    // ✅ Fetch the persona info
-    const { data: persona, error: personaError } = await supabase
+    // 1️⃣ Get persona info
+    const { data: persona } = await supabase
       .from("behavior_personas")
       .select("*")
       .eq("id", personaId)
-      .single();
+      .maybeSingle();
 
-    if (personaError || !persona) {
-      return NextResponse.json(
-        { error: "Persona not found", detail: personaError?.message },
-        { status: 404 }
-      );
+    // 2️⃣ Get its linked call transcript
+    let callContext = "";
+    if (persona?.call_id) {
+      const { data: call } = await supabase
+        .from("calls")
+        .select("text")
+        .eq("id", persona.call_id)
+        .maybeSingle();
+      callContext = call?.text?.slice(0, 1500) || "";
     }
 
-    // Generate the voice/text reply
-    const prompt = `You are acting as ${persona.name || "a sales coach"} with tone "${persona.tone || "neutral"}".
-Respond to this message helpfully and clearly:
-"${userText}"`;
+    const sessionKey = sessionId || personaId;
+    const history = memory.get(sessionKey) || [];
+
+    // 3️⃣ Strong contextual prompt
+    const systemPrompt = `
+You are simulating a *customer* in a realistic electricity sales call.
+You must speak in the voice of the real customer whose call transcript is below.
+
+Persona info:
+- Name: ${persona?.name || "Unknown"}
+- Behavior: ${persona?.behavior || "neutral"}
+- Description: ${persona?.description || "none"}
+- Typical objections: ${(persona?.objection_examples || []).join(", ")}
+
+Transcript context (real call fragment):
+"""
+${callContext || "No transcript available."}
+"""
+
+Your task:
+- Act *as that same person* from the transcript.
+- React naturally to what the salesperson says.
+- Keep replies brief (1–2 sentences) and realistic.
+- Maintain continuity and emotional tone from the transcript.
+- Stay in role as a *customer talking about electricity, billing, or contracts.*
+
+Example behavior:
+Salesperson: "Hi, I’m calling from Svenska Elverket regarding your electricity contract."
+Customer: "Oh, yeah. I think my plan’s expiring soon — what are you offering?"
+
+Never act as an AI or mention you are artificial.
+`;
+
+    history.push({ role: "user", content: userText });
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are a helpful conversational AI." },
-        { role: "user", content: prompt },
-      ],
+      temperature: 0.85,
+      messages: [{ role: "system", content: systemPrompt }, ...history],
     });
 
-    const reply = completion.choices[0]?.message?.content || "No response generated.";
+    const reply = completion.choices[0]?.message?.content?.trim() || "(no reply)";
+    history.push({ role: "assistant", content: reply });
+    memory.set(sessionKey, history);
 
-    // Optional: save to Supabase
-    await supabase.from("voice_replies").insert({
-      persona_id: personaId,
-      user_input: userText,
-      ai_reply: reply,
-      created_at: new Date().toISOString(),
+    // 4️⃣ Generate voice
+    const tts = await openai.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice: "alloy",
+      input: reply,
     });
+    const buffer = Buffer.from(await tts.arrayBuffer());
+    const base64 = buffer.toString("base64");
 
-    return NextResponse.json({ ok: true, reply });
+    return NextResponse.json({ ok: true, reply, audio: base64 });
   } catch (e: any) {
     console.error("voice-reply error:", e);
-    return NextResponse.json(
-      { error: "voice_reply_failed", detail: e?.message || String(e) },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: e?.message || "voice_reply_failed" }, { status: 500 });
   }
 }
