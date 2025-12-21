@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextRequest, NextResponse } from "next/server";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 function makeClient(req: NextRequest, res: NextResponse) {
   return createServerClient(
@@ -12,74 +12,46 @@ function makeClient(req: NextRequest, res: NextResponse) {
     {
       cookies: {
         getAll() {
-          return req.cookies.getAll();
+          return req.cookies.getAll()
         },
         setAll(cookies) {
           cookies.forEach(({ name, value, options }) => {
-            res.cookies.set(name, value, options as CookieOptions);
-          });
+            res.cookies.set(name, value, options as CookieOptions)
+          })
         },
       },
     }
-  );
+  )
 }
 
 export async function POST(req: NextRequest) {
-  const res = NextResponse.json({});
+  const res = NextResponse.json({})
   try {
-    const supabase = makeClient(req, res);
-    const {
-      data: { user },
-      error: userErr,
-    } = await supabase.auth.getUser();
+    const supabase = makeClient(req, res)
+    const { data: { user }, error: userErr } = await supabase.auth.getUser()
+    if (userErr || !user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-    if (userErr || !user) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    const body = await req.json().catch(() => ({}))
+    const { callId, path, filename, mime_type, size_bytes } = body
+
+    if (!callId || !path || !filename) {
+      return NextResponse.json({ error: 'missing_call_fields' }, { status: 400 })
     }
 
-    const body = await req.json().catch(() => ({} as any));
-    const id = String(body.id || "").trim();
-    const file_path = String(body.file_path || "").trim();
-    const filename = String(body.filename || "").trim();
-    const mime_type = body.mime_type ? String(body.mime_type) : null;
-    const size_bytes =
-      body.size_bytes === 0 || body.size_bytes ? Number(body.size_bytes) : null;
-
-    if (!id || !file_path || !filename) {
-      return NextResponse.json(
-        { error: "missing_fields", detail: "id, file_path, filename required" },
-        { status: 400 }
-      );
-    }
-
-    // Insert DB row (must match your schema columns)
-    const { error: dbErr } = await supabase.from("calls").insert({
-      id,
+    const { error: insErr } = await supabase.from('calls').insert({
+      id: callId,
       owner: user.id,
       filename,
-      file_path,
-      mime_type,
-      size_bytes,
+      file_path: path,
+      mime_type: mime_type ?? null,
+      size_bytes: size_bytes ?? null,
       created_at: new Date().toISOString(),
-    });
+    })
 
-    if (dbErr) {
-      return NextResponse.json({ error: dbErr.message }, { status: 500 });
-    }
+    if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
 
-    // Return same shape your UI already expects
-    return NextResponse.json({
-      ok: true,
-      callId: id,
-      id,
-      path: file_path,
-      userId: user.id,
-      filename,
-    });
+    return NextResponse.json({ ok: true, callId, path })
   } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || "register_failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: e?.message || 'register_failed' }, { status: 500 })
   }
 }

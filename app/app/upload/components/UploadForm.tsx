@@ -3,6 +3,11 @@
 import { useState, DragEvent } from 'react'
 import { supabaseBrowser } from '@/lib/supabaseBrowser'
 
+function safeJsonError(err: unknown) {
+  if (err instanceof Error) return err.message
+  return String(err)
+}
+
 export default function UploadForm() {
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -16,9 +21,7 @@ export default function UploadForm() {
   function handleDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault()
     setDragOver(false)
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setFile(e.dataTransfer.files[0])
-    }
+    if (e.dataTransfer.files?.length) setFile(e.dataTransfer.files[0])
   }
 
   function handleDragOver(e: DragEvent<HTMLDivElement>) {
@@ -30,34 +33,28 @@ export default function UploadForm() {
     setDragOver(false)
   }
 
-  async function safeJson(res: Response) {
-    const text = await res.text()
-    try {
-      return JSON.parse(text)
-    } catch {
-      throw new Error(text || `HTTP ${res.status}`)
-    }
-  }
-
-  // ✅ Upload (direct to Supabase) → register DB → transcribe → refresh UI
   async function handleUpload() {
     if (!file) return alert('Please choose a file first.')
     setLoading(true)
     setMessage('')
 
     try {
-      setMessage('Uploading to storage...')
-
       const sb = supabaseBrowser()
-      const { data: auth } = await sb.auth.getUser()
-      const user = auth?.user
-      if (!user) throw new Error('Not authenticated')
 
-      const callId = crypto.randomUUID()
+      // ✅ Must have a session for private bucket + RLS
+      const { data: sessionData } = await sb.auth.getSession()
+      const session = sessionData?.session
+      if (!session?.user) throw new Error('Not authenticated')
+
+      const userId = session.user.id
+      const callId =
+        (globalThis.crypto?.randomUUID?.() as string | undefined) ||
+        `${Date.now()}-${Math.random().toString(16).slice(2)}`
+
       const safeName = (file.name || 'audio').replace(/\s+/g, '_')
-      const path = `${user.id}/${callId}_${safeName}`
+      const path = `${userId}/${callId}_${safeName}`
 
-      // Direct upload to private bucket "calls"
+      setMessage('Uploading to storage...')
       const { error: upErr } = await sb.storage
         .from('calls')
         .upload(path, file, {
@@ -68,39 +65,26 @@ export default function UploadForm() {
       if (upErr) throw new Error(upErr.message)
 
       setMessage('Registering call in database...')
-
-      // Register in DB (server-side, JSON only)
       const regRes = await fetch('/api/calls/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        credentials: 'include', // ✅ IMPORTANT (so API sees auth cookies on Vercel)
         body: JSON.stringify({
-          id: callId,
-          file_path: path,
+          callId,
+          path,
           filename: safeName,
           mime_type: file.type || null,
           size_bytes: file.size || null,
         }),
       })
 
-      const regData = await safeJson(regRes)
-      if (!regData.ok) throw new Error(regData.error || 'Register failed')
+      const regText = await regRes.text()
+      let regJson: any = null
+      try { regJson = JSON.parse(regText) } catch {}
+      if (!regRes.ok) {
+        throw new Error(regJson?.error || regText || 'register_failed')
+      }
 
-      setMessage('✅ Uploaded. Starting transcription...')
-      window.dispatchEvent(new Event('callsUpdated'))
-
-      await handleTranscribe(regData.path, regData.filename, regData.userId, regData.callId)
-    } catch (err: any) {
-      console.error('Upload error:', err)
-      setMessage('❌ Upload failed: ' + (err?.message || String(err)))
-    } finally {
-      setLoading(false)
-      setFile(null)
-    }
-  }
-
-  async function handleTranscribe(path: string, filename: string, userId: string, callId: string) {
-    try {
       setMessage('Generating signed URL...')
       const urlRes = await fetch('/api/get-call-url', {
         method: 'POST',
@@ -108,28 +92,35 @@ export default function UploadForm() {
         credentials: 'include',
         body: JSON.stringify({ path }),
       })
-      const urlData = await safeJson(urlRes)
-      if (!urlData.url) throw new Error('Failed to generate signed URL.')
+      const urlText = await urlRes.text()
+      let urlJson: any = null
+      try { urlJson = JSON.parse(urlText) } catch {}
+      const url = urlJson?.url
+      if (!url) throw new Error(urlJson?.error || urlText || 'Failed to generate signed URL.')
 
-      setMessage('Transcribing + creating persona...')
+      setMessage('Transcribing + creating personas...')
       const transcribeRes = await fetch('/api/transcribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ audioUrl: urlData.url, filename, userId, callId }),
+        body: JSON.stringify({ audioUrl: url, filename: safeName, userId, callId }),
       })
-
-      const transcribeData = await safeJson(transcribeRes)
-      if (transcribeData.ok) {
-        setMessage('✅ Transcription complete + Persona generated!')
-        window.dispatchEvent(new Event('callsUpdated'))
-        window.dispatchEvent(new Event('personasUpdated'))
-      } else {
-        throw new Error(transcribeData.error || 'Transcription failed.')
+      const tText = await transcribeRes.text()
+      let tJson: any = null
+      try { tJson = JSON.parse(tText) } catch {}
+      if (!transcribeRes.ok || !tJson?.ok) {
+        throw new Error(tJson?.error || tText || 'Transcription failed.')
       }
-    } catch (err: any) {
-      console.error('Transcribe error:', err)
-      setMessage('❌ ' + (err?.message || String(err)))
+
+      setMessage('Upload + transcription complete!')
+      window.dispatchEvent(new Event('callsUpdated'))
+      window.dispatchEvent(new Event('personasUpdated'))
+      setFile(null)
+    } catch (err) {
+      console.error(err)
+      setMessage('Upload failed: ' + safeJsonError(err))
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -169,7 +160,7 @@ export default function UploadForm() {
           disabled={loading || !file}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60"
         >
-          {loading ? 'Uploading...' : 'Upload'}
+          {loading ? 'Working...' : 'Upload'}
         </button>
       </div>
 
