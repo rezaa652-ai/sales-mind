@@ -5,8 +5,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function createClient(req: NextRequest, res: NextResponse) {
-  const host = req.headers.get("host") || "salesmind.app";
-  const isLocal = host.includes("localhost") || host.includes("127.0.0.1");
+  const host = req.headers.get("host") || "";
+
+  const isLocal =
+    host.includes("localhost") || host.includes("127.0.0.1");
+
+  const isPreview = host.includes(".vercel.app");
+  const isProduction = host.endsWith("salesmind.app");
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,8 +27,8 @@ function createClient(req: NextRequest, res: NextResponse) {
               ...options,
               httpOnly: true,
               sameSite: "lax",
-              secure: !isLocal ? true : false,
-              domain: isLocal ? undefined : "salesmind.app",
+              secure: !isLocal,
+              domain: isProduction ? "salesmind.app" : undefined,
               path: "/",
             } as CookieOptions);
           });
